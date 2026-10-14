@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://images.unsplash.com https://afsvdjbtkhshtppakqbe.supabase.co https://server.arcgisonline.com; media-src 'self' blob: https://afsvdjbtkhshtppakqbe.supabase.co; connect-src 'self' https://afsvdjbtkhshtppakqbe.supabase.co wss://afsvdjbtkhshtppakqbe.supabase.co">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>UbiPet - Rastreo GPS, Comunidad de Mascotas & Seguridad</title>
     <!-- Tailwind CSS para diseño y estilos modernos -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -622,7 +624,7 @@
                             <div class="space-y-2 text-xs text-gray-800">
                                 <div>
                                     <label class="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Enlace de tu Instagram</label>
-                                    <input id="verify-instagram" type="text" placeholder="https://instagram.com/tu_mascota" class="w-full bg-white border border-blue-200 rounded-xl p-2.5 text-xs text-gray-800 outline-none focus:ring-1 focus:ring-ubipet-500">
+                                    <input id="verify-instagram" type="url" maxlength="2048" placeholder="https://instagram.com/tu_mascota" class="w-full bg-white border border-blue-200 rounded-xl p-2.5 text-xs text-gray-800 outline-none focus:ring-1 focus:ring-ubipet-500">
                                 </div>
                                 <div>
                                     <label class="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Foto Graciosa de Luffy</label>
@@ -789,6 +791,21 @@
                     </div>
                 </div>
 
+                <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-sm font-extrabold text-white">Emergencias activas</h2>
+                            <span id="admin-sos-count" class="text-xs font-bold text-red-400">0</span>
+                        </div>
+                        <div id="admin-sos-list" class="space-y-3 max-h-72 overflow-y-auto text-xs text-slate-400">
+                            <p>No hay emergencias activas.</p>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 bg-slate-900 p-3 rounded-2xl border border-slate-800">
+                        <div id="admin-sos-map" class="h-72 rounded-xl"></div>
+                    </div>
+                </section>
+
                 <!-- Formulario + Base de Datos Grid -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <!-- Registro Nuevo Usuario (GPS) -->
@@ -931,7 +948,7 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">¿Qué está haciendo tu mascota?</label>
-                        <textarea id="post-caption" required placeholder="¡Describe la aventura de hoy!..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-ubipet-500 outline-none h-24 resize-none"></textarea>
+                            <textarea id="post-caption" required maxlength="2000" placeholder="¡Describe la aventura de hoy!..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-ubipet-500 outline-none h-24 resize-none"></textarea>
                     </div>
                     <div>
                         <label for="post-media-file" class="block text-xs font-bold text-gray-500 uppercase mb-1">Imagen o Reel (máximo 7 segundos)</label>
@@ -940,7 +957,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Ubicación en Caracas</label>
-                        <input id="post-location" type="text" value="El Rosal, Caracas" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800">
+                        <input id="post-location" type="text" maxlength="120" value="El Rosal, Caracas" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800">
                     </div>
                 </div>
                 <div class="mt-6 flex space-x-2">
@@ -972,11 +989,11 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título de la Alerta</label>
-                        <input id="help-title" type="text" required placeholder="Ej: Mestizo asustado cerca de la plaza" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800 focus:ring-2 focus:ring-cyan-500">
+                        <input id="help-title" type="text" required maxlength="120" placeholder="Ej: Mestizo asustado cerca de la plaza" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800 focus:ring-2 focus:ring-cyan-500">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descripción / Detalles</label>
-                        <textarea id="help-desc" required placeholder="¿Cómo está el perrito?..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs text-gray-800 focus:ring-2 focus:ring-cyan-500 h-20 resize-none"></textarea>
+                        <textarea id="help-desc" required maxlength="1000" placeholder="¿Cómo está el perrito?..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs text-gray-800 focus:ring-2 focus:ring-cyan-500 h-20 resize-none"></textarea>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Sector o Zona (Caracas)</label>
@@ -1025,6 +1042,12 @@
         let searchRadarCircle = null;
         let currentMapStyle = 'streets';
         let isSOSMode = false;
+        let activeSosId = null;
+        let sosActivationToken = 0;
+        let activeEmergencies = [];
+        let adminSosMap = null;
+        let adminSosMarkers = null;
+        let adminSosChannel = null;
         let routeIndex = 0;
         let helpMapMarkersList = [];
         let gpsSimulationInterval = null;
@@ -1191,6 +1214,8 @@
 
             if (isAdmin) {
                 await loadAdminMascotas();
+                initAdminSOSMap();
+                subscribeSOSRealtime();
                 return;
             }
             await loadMascotas();
@@ -1216,6 +1241,10 @@
             }
             currentUser = null;
             clearInterval(gpsSimulationInterval);
+            if (adminSosChannel) {
+                await supabaseClient.removeChannel(adminSosChannel);
+                adminSosChannel = null;
+            }
             document.getElementById('view-user-app').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
             document.getElementById('view-landing').classList.remove('hidden');
@@ -1784,6 +1813,10 @@
         }
 
         function activateSOS() {
+            const currentData = simulateRoute[routeIndex];
+            const activationToken = ++sosActivationToken;
+            activeSosId = null;
+            subscribeSOSRealtime();
             closeModal('modal-sos-confirm');
             isSOSMode = true;
             
@@ -1798,11 +1831,10 @@
                 <span class="font-extrabold text-xs tracking-wide">CANCELAR</span>
             `;
 
-            const currentData = simulateRoute[routeIndex];
-
             // 1. EMITIR EL ESTADO DEL SOS A TRAVÉS DE LOCALSTORAGE A TODAS LAS INSTANCIAS ABIERTAS
             const sosBroadcastData = {
                 active: true,
+                emergencyId: activeSosId,
                 petName: "Luffy",
                 lat: currentData.lat,
                 lng: currentData.lng,
@@ -1832,9 +1864,68 @@
                 map.setView(mainMarker.getLatLng(), 16);
             }
             switchTab('map');
+
+            persistSOS(currentData, activationToken);
         }
 
-        function deactivateSOS() {
+        async function persistSOS(currentData, activationToken) {
+            let userId = null;
+            try {
+                const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+                if (sessionError) console.warn('[UbiPet] No se pudo consultar la sesión; se enviará user_id null.', sessionError);
+                userId = sessionData?.session?.user?.id || null;
+            } catch (sessionError) {
+                console.warn('[UbiPet] No se pudo consultar la sesión; se enviará user_id null.', sessionError);
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('emergencias_sos')
+                    .insert([{
+                        user_id: userId,
+                        pet_name: 'Luffy',
+                        lat: currentData.lat,
+                        lng: currentData.lng,
+                        ubicacion: currentData.address,
+                        estado: 'activa'
+                    }])
+                    .select('id')
+                    .single();
+
+                if (error) throw error;
+                if (isSOSMode && activationToken === sosActivationToken) {
+                    activeSosId = data.id;
+                    const sosBroadcastData = JSON.parse(localStorage.getItem('ubipet_sos_state') || '{}');
+                    localStorage.setItem('ubipet_sos_state', JSON.stringify({ ...sosBroadcastData, emergencyId: activeSosId }));
+                    return;
+                }
+
+                const { error: resolveError } = await supabaseClient
+                    .from('emergencias_sos')
+                    .update({ estado: 'resuelta' })
+                    .eq('id', data.id);
+                if (resolveError) console.error('[UbiPet] SOS cancelado mientras se guardaba y no pudo marcarse resuelto:', resolveError);
+            } catch (error) {
+                console.error('[UbiPet] No se pudo guardar la alerta SOS en Supabase. El SOS sigue activo solo en esta PWA:', error);
+                showToast('Alerta no sincronizada', 'El SOS sigue visible en este dispositivo, pero no se pudo enviar a Supabase.', 'error');
+            }
+        }
+
+        async function deactivateSOS() {
+            sosActivationToken += 1;
+            if (activeSosId !== null) {
+                const { error } = await supabaseClient
+                    .from('emergencias_sos')
+                    .update({ estado: 'resuelta' })
+                    .eq('id', activeSosId)
+                    .eq('estado', 'activa');
+
+                if (error) {
+                    showToast('No se pudo resolver SOS', authErrorMessage(error), 'error');
+                    return;
+                }
+                activeSosId = null;
+            }
             isSOSMode = false;
             const markerVisual = document.getElementById('dog-marker-visual');
             if (markerVisual) markerVisual.classList.remove('dog-marker-sos');
@@ -1890,6 +1981,7 @@
         // Aplicar estado SOS cuando otra pestaña lo dispara
         function applyExternalSOSState(sosData) {
             isSOSMode = true;
+            if (sosData.emergencyId) activeSosId = sosData.emergencyId;
             
             // Desplegar notificación push simulada
             showToast("⚠️ ALERTA SOS COMUNITARIA", `¡Atención! La mascota "${sosData.petName}" se ha extraviado cerca de ${sosData.deviceLocationName}. Se ha dibujado un perímetro de seguridad de 10km en tu mapa.`, "error");
@@ -1920,6 +2012,7 @@
         // Cancelar SOS cuando otra pestaña lo detiene
         function applyExternalSOSCancel() {
             isSOSMode = false;
+            activeSosId = null;
             
             showToast("SOS Resuelto", "La emergencia comunitaria ha sido cancelada o resuelta.", "success");
 
@@ -2218,13 +2311,6 @@
                     ? file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
                     : (type === 'video' ? 'mp4' : 'jpg');
                 storagePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-                console.log('[UbiPet] Datos enviados a Supabase Storage:', {
-                    bucket: 'mascotas-media',
-                    path: storagePath,
-                    file: { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified },
-                    user_id: user.id
-                });
-
                 const { error: uploadError } = await supabaseClient.storage
                     .from('mascotas-media')
                     .upload(storagePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
@@ -2242,7 +2328,6 @@
                     media_url: publicUrlData.publicUrl,
                     location
                 };
-                console.log('[UbiPet] Datos enviados a public.publicaciones:', postPayload);
                 const { error: postError } = await supabaseClient.from('publicaciones').insert([postPayload]);
                 if (postError) {
                     throw postError;
@@ -2256,11 +2341,7 @@
                 updateMyProfileGrid();
                 showToast("Publicado", type === 'video' ? "Tu Reel se publicó en el Club." : "Tu foto se publicó en el Club.", "success");
             } catch (error) {
-                console.error("Error detallado:", error?.message || error, {
-                    error,
-                    storagePath,
-                    file: file ? { name: file.name, type: file.type, size: file.size } : null
-                });
+                console.error('[UbiPet] No se pudo publicar:', error?.message || 'Error desconocido.');
                 if (uploaded && storagePath) {
                     try {
                         const { error: cleanupError } = await supabaseClient.storage.from('mascotas-media').remove([storagePath]);
@@ -2309,7 +2390,9 @@
             document.getElementById('kpi-total').innerText = registeredUsers.length;
             const onlineCount = registeredUsers.filter(u => u.status === 'online').length;
             document.getElementById('kpi-active').innerText = onlineCount;
-            document.getElementById('kpi-sos').innerText = isSOSMode ? "1" : "0";
+            document.getElementById('kpi-sos').innerText = activeEmergencies.length;
+            const sosCount = document.getElementById('admin-sos-count');
+            if (sosCount) sosCount.innerText = activeEmergencies.length;
 
             const tableBody = document.getElementById('admin-user-table');
             tableBody.innerHTML = '';
@@ -2403,6 +2486,103 @@
                 `;
                 telemetryGrid.appendChild(card);
             });
+
+            renderAdminEmergencies();
+        }
+
+        function initAdminSOSMap() {
+            const mapElement = document.getElementById('admin-sos-map');
+            if (!mapElement || !window.L) return;
+            if (!adminSosMap) {
+                adminSosMap = L.map(mapElement, { zoomControl: true }).setView([10.4806, -66.9036], 12);
+                L.tileLayer(mapLayers.streets, {
+                    maxZoom: 19,
+                    referrerPolicy: 'no-referrer',
+                    attribution: mapLayers.streetsAttribution
+                }).addTo(adminSosMap);
+                adminSosMarkers = L.layerGroup().addTo(adminSosMap);
+            }
+            setTimeout(() => adminSosMap?.invalidateSize(), 0);
+        }
+
+        function subscribeSOSRealtime() {
+            if (!currentUser || adminSosChannel) return;
+            adminSosChannel = supabaseClient
+                .channel('public:emergencias_sos')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'emergencias_sos'
+                }, () => {
+                    if (isSuperAdmin(currentUser)) loadActiveEmergencies();
+                })
+                .subscribe(status => {
+                    if (status === 'SUBSCRIBED' && isSuperAdmin(currentUser)) loadActiveEmergencies();
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        console.error('[UbiPet] No se pudo escuchar emergencias SOS en tiempo real.');
+                    }
+                });
+        }
+
+        async function loadActiveEmergencies() {
+            if (!isSuperAdmin(currentUser)) return;
+            const { data, error } = await supabaseClient
+                .from('emergencias_sos')
+                .select('id,pet_name,lat,lng,ubicacion,estado')
+                .eq('estado', 'activa');
+
+            if (error) {
+                console.error('[UbiPet] No se pudieron cargar las emergencias SOS:', error.message);
+                return;
+            }
+            activeEmergencies = data || [];
+            refreshAdminViews();
+        }
+
+        function renderAdminEmergencies() {
+            const list = document.getElementById('admin-sos-list');
+            if (!list) return;
+            list.replaceChildren();
+
+            if (activeEmergencies.length === 0) {
+                const emptyMessage = document.createElement('p');
+                emptyMessage.textContent = 'No hay emergencias activas.';
+                list.appendChild(emptyMessage);
+            } else {
+                activeEmergencies.forEach(emergency => {
+                    const item = document.createElement('div');
+                    item.className = 'border-b border-slate-800 pb-3 last:border-0';
+                    const petName = document.createElement('strong');
+                    petName.className = 'block text-white';
+                    petName.textContent = emergency.pet_name || 'Mascota';
+                    const location = document.createElement('span');
+                    location.textContent = emergency.ubicacion || `${emergency.lat}, ${emergency.lng}`;
+                    item.append(petName, location);
+                    list.appendChild(item);
+                });
+            }
+
+            if (!adminSosMarkers) return;
+            adminSosMarkers.clearLayers();
+            activeEmergencies.forEach(emergency => {
+                const lat = Number(emergency.lat);
+                const lng = Number(emergency.lng);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+                L.marker([lat, lng])
+                    .bindPopup(escapeHTML(emergency.pet_name || 'Mascota'))
+                    .addTo(adminSosMarkers);
+            });
+            if (activeEmergencies.length === 1) {
+                const emergency = activeEmergencies[0];
+                const lat = Number(emergency.lat);
+                const lng = Number(emergency.lng);
+                if (Number.isFinite(lat) && Number.isFinite(lng)) adminSosMap.setView([lat, lng], 15);
+            } else if (activeEmergencies.length > 1) {
+                const validLocations = activeEmergencies
+                    .map(emergency => [Number(emergency.lat), Number(emergency.lng)])
+                    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+                if (validLocations.length) adminSosMap.fitBounds(validLocations, { padding: [24, 24], maxZoom: 15 });
+            }
         }
 
         async function handleNewUserRegister(event, form) {
@@ -2442,10 +2622,7 @@
                     password: customerPassword
                 });
                 if (accountError) {
-                    console.error('[UbiPet] Error al crear la cuenta Auth:', {
-                        email: customerEmail,
-                        error: accountError
-                    });
+                    console.error('[UbiPet] Error al crear la cuenta Auth:', accountError.message);
                     showToast("No se pudo crear la cuenta", authErrorMessage(accountError), "error");
                     return;
                 }
@@ -2453,11 +2630,7 @@
                 const customerUser = accountData.user;
                 if (!customerUser?.id || customerUser.identities?.length === 0) {
                     const accountError = new Error('La cuenta ya existe o Auth no devolvió un UUID utilizable.');
-                    console.error('[UbiPet] No se pudo resolver la cuenta cliente:', {
-                        email: customerEmail,
-                        user: customerUser,
-                        error: accountError
-                    });
+                    console.error('[UbiPet] No se pudo resolver la cuenta cliente:', accountError.message);
                     showToast("Correo ya registrado", "La cuenta ya existe o no se pudo confirmar su UUID.", "error");
                     return;
                 }
@@ -2470,16 +2643,11 @@
                     telefono: phone,
                     imei_gps: collarId
                 };
-                console.info('[UbiPet] Insertando fila en mascotas:', mascotaPayload);
-
                 const { error: insertError } = await supabaseClient
                     .from('mascotas')
                     .insert([mascotaPayload]);
                 if (insertError) {
-                    console.error('[UbiPet] Error devuelto por Supabase al insertar mascotas:', {
-                        payload: mascotaPayload,
-                        error: insertError
-                    });
+                    console.error('[UbiPet] Error al registrar la mascota:', insertError.message);
                     showToast("Cuenta creada, pero falló el registro de la mascota", authErrorMessage(insertError), "error");
                     return;
                 }
@@ -2488,11 +2656,7 @@
                 showToast("Cliente y GPS registrados", `Se asignó ${collarId} a ${customerEmail}.`, "success");
                 form.reset();
             } catch (registrationError) {
-                console.error('[UbiPet] Excepción durante el registro del cliente/mascota:', {
-                    email: customerEmail,
-                    payload: mascotaPayload,
-                    error: registrationError
-                });
+                console.error('[UbiPet] Excepción durante el registro del cliente/mascota:', registrationError?.message || 'Error desconocido.');
                 showToast("Error inesperado al registrar", authErrorMessage(registrationError), "error");
             }
         }
@@ -2574,7 +2738,7 @@
             });
             if (!map) return;
             const helpMarker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
-            helpMarker.bindPopup(`<strong class="text-xs text-gray-800">${title}</strong>`);
+            helpMarker.bindPopup(`<strong class="text-xs text-gray-800">${escapeHTML(title)}</strong>`);
             helpMapMarkersList.push({ lat, lng, type, marker: helpMarker });
         }
 
@@ -2619,8 +2783,8 @@
                 <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center text-lg flex-shrink-0"><i class="fa-solid ${icon}"></i></div>
                 <div class="flex-1 text-xs">
                     <div class="flex justify-between"><span class="${badgeColor} font-extrabold px-2.5 py-0.5 rounded-full uppercase text-[9px]">${badgeText}</span></div>
-                    <h5 class="font-extrabold text-gray-800 mt-1.5">${title}</h5>
-                    <p class="text-[11px] text-gray-500 mt-0.5">${desc}</p>
+                    <h5 class="font-extrabold text-gray-800 mt-1.5">${escapeHTML(title)}</h5>
+                        <p class="text-[11px] text-gray-500 mt-0.5">${escapeHTML(desc)}</p>
                 </div>
             `;
             container.prepend(newCard);
