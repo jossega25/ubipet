@@ -1,0 +1,2775 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UbiPet - Rastreo GPS, Comunidad de Mascotas & Seguridad</title>
+    <!-- Tailwind CSS para diseño y estilos modernos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ubipet: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            200: '#bae0fd',
+                            500: '#2563eb', // Azul principal
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                            danger: '#ef4444', // Rojo SOS
+                            success: '#10b981', // Verde activo
+                            warning: '#f59e0b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome para iconografía enriquecida -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS para el mapa interactivo -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.72);
+            -webkit-backdrop-filter: blur(18px) saturate(145%);
+            backdrop-filter: blur(18px) saturate(145%);
+            border: 1px solid rgba(255, 255, 255, 0.62);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.10), inset 0 1px rgba(255, 255, 255, 0.5);
+        }
+        .glass-panel-dark {
+            background: rgba(15, 23, 42, 0.76);
+            -webkit-backdrop-filter: blur(18px) saturate(135%);
+            backdrop-filter: blur(18px) saturate(135%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 16px 36px rgba(2, 6, 23, 0.22), inset 0 1px rgba(255, 255, 255, 0.08);
+        }
+        .glass-blue {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.78), rgba(30, 64, 175, 0.72));
+        }
+        button:not(:disabled) {
+            transform-origin: center;
+            transition: transform 180ms ease, translate 180ms ease, scale 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+        }
+        button:not(:disabled):hover {
+            translate: 0 -2px;
+            scale: 1.025;
+            filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.14));
+        }
+        button:not(:disabled):active {
+            translate: 0 0;
+            scale: 0.96;
+        }
+        .tab-view-enter {
+            animation: tab-view-enter 260ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+        }
+        @keyframes tab-view-enter {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        [data-motion-modal]:not(.hidden) > .modal-panel {
+            animation: modal-panel-enter 220ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+        }
+        [data-motion-modal].modal-exit > .modal-panel {
+            animation: modal-panel-exit 160ms ease both;
+        }
+        @keyframes modal-panel-enter {
+            from { opacity: 0; transform: translateY(10px) scale(0.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes modal-panel-exit {
+            to { opacity: 0; transform: translateY(6px) scale(0.99); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes custom-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.85; }
+        }
+        .pulse-effect {
+            animation: custom-pulse 2s infinite;
+        }
+        @keyframes radar {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.6); opacity: 0.3; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .radar-ring {
+            animation: radar 2s infinite;
+        }
+        #map {
+            height: 100%;
+            min-height: 350px;
+            width: 100%;
+            z-index: 10;
+        }
+        .map-container {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 350px;
+        }
+        .dog-marker-container {
+            position: relative;
+            width: 48px;
+            height: 48px;
+        }
+        .dog-marker-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 3px solid #2563eb;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            z-index: 20;
+        }
+        .dog-marker-pulse {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: rgba(37, 99, 235, 0.4);
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            animation: radar 1.5s infinite;
+        }
+        .dog-marker-sos .dog-marker-avatar {
+            border-color: #ef4444;
+        }
+        .dog-marker-sos .dog-marker-pulse {
+            background-color: rgba(239, 68, 68, 0.5);
+        }
+        .help-marker-container {
+            position: relative;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            color: white;
+            border: 2px solid white;
+            transition: transform 0.2s;
+        }
+        .help-marker-container:hover {
+            transform: scale(1.15);
+        }
+        .help-marker-abandoned {
+            background-color: #f59e0b;
+        }
+        .help-marker-resource {
+            background-color: #06b6d4;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen overflow-x-hidden">
+
+    <!-- TOAST DE NOTIFICACIONES PERSONALIZADO -->
+    <div id="toast-notification" class="hidden fixed top-6 right-6 z-[9999] max-w-sm bg-white text-slate-900 p-4 rounded-2xl shadow-2xl border-l-4 border-ubipet-500 flex items-center space-x-3 transition-all duration-300 transform translate-y-2 opacity-0">
+        <div id="toast-icon-wrapper" class="w-8 h-8 rounded-full flex items-center justify-center text-white bg-ubipet-500">
+            <i class="fa-solid fa-info text-sm"></i>
+        </div>
+        <div class="flex-1">
+            <h5 id="toast-title" class="font-extrabold text-xs uppercase tracking-wider text-slate-500">Notificación</h5>
+            <p id="toast-message" class="text-xs text-slate-700 font-medium mt-0.5">Mensaje del sistema.</p>
+        </div>
+        <button onclick="hideToast()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- PANTALLA 1: LANDING PAGE DE UBIPET -->
+    <!-- ============================================== -->
+    <div id="view-landing" class="relative w-full min-h-screen flex flex-col bg-slate-950">
+        <!-- Navbar -->
+        <header class="w-full max-w-7xl mx-auto px-6 py-5 flex justify-between items-center z-10">
+            <div class="flex items-center space-x-2.5">
+                <div class="bg-ubipet-500 p-2 rounded-2xl text-white shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-paw text-xl"></i>
+                </div>
+                <span class="text-xl font-black tracking-tight text-white">Ubi<span class="text-ubipet-500">Pet</span></span>
+            </div>
+            
+            <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+                <a href="#features" class="hover:text-white transition-colors">Características</a>
+                <a href="#how-it-works" class="hover:text-white transition-colors">¿Cómo Funciona?</a>
+                <a href="#solidary" class="hover:text-white transition-colors">Comunidad</a>
+            </nav>
+
+            <button onclick="showLogin()" class="bg-ubipet-500 hover:bg-ubipet-600 text-white text-sm font-bold px-6 py-2.5 rounded-full transition-all shadow-lg shadow-blue-500/15 hover:scale-[1.02] active:scale-95 flex items-center gap-2">
+                <i class="fa-solid fa-user-circle text-base"></i> Iniciar Sesión
+            </button>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="flex-1 max-w-7xl mx-auto px-6 py-12 md:py-20 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative">
+            <div class="lg:col-span-7 space-y-6 text-center lg:text-left">
+                <span class="inline-flex items-center space-x-2 bg-blue-500/10 border border-blue-500/20 text-ubipet-200 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider">
+                    <i class="fa-solid fa-satellite-dish animate-pulse"></i> Lanzamiento Oficial en Caracas
+                </span>
+                <h1 class="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-tight">
+                    El GPS inteligente que mantiene a tu <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">mascota a salvo</span>.
+                </h1>
+                <p class="text-sm sm:text-base text-slate-400 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                    Sigue a tu perro o gato en tiempo real por toda la ciudad de Caracas con cobertura GPS integrada, alertas SOS instantáneas y forma parte del club social para mascotas más grande de Venezuela.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
+                    <button onclick="showLogin()" class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold px-8 py-4 rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
+                        Adquirir Collar UbiPet <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button onclick="showLogin()" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-8 py-4 rounded-2xl text-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-user-plus text-xs text-ubipet-500"></i> Crear cuenta UbiPet
+                    </button>
+                </div>
+            </div>
+
+            <!-- Previsualizador de la App / Smartphone Mockup en Landing -->
+            <div class="lg:col-span-5 flex justify-center relative">
+                <div class="absolute -inset-4 bg-blue-500/20 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+                <div class="relative w-72 h-[580px] bg-slate-950 rounded-[45px] p-2.5 border-4 border-slate-800 shadow-2xl overflow-hidden">
+                    <div class="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-5 bg-slate-950 rounded-full z-50 flex items-center justify-center">
+                        <span class="w-3 h-3 bg-blue-900/40 rounded-full"></span>
+                    </div>
+                    <div class="w-full h-full rounded-[38px] overflow-hidden relative bg-slate-900 flex flex-col">
+                        <div class="flex-1 bg-cover bg-center flex flex-col justify-end p-5 relative" style="background-image: url('https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=400');">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
+                            <div class="relative z-10 space-y-2">
+                                <div class="bg-blue-50 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider">PWA Activa</div>
+                                <h3 class="font-extrabold text-lg text-white leading-tight">UbiPet Tracker</h3>
+                                <p class="text-[11px] text-slate-300">La aplicación interactiva para rastrear a tu mascota ya viene integrada con tu collar.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="w-full py-8 border-t border-slate-900 bg-slate-950 text-center text-xs text-slate-600">
+            <p>© 2026 UbiPet Venezuela. Todos los derechos reservados. Desarrollado para mascotas del Valle de Caracas.</p>
+        </footer>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- PANTALLA 2: FORMULARIO DE ACCESO (LOGIN) -->
+    <!-- ============================================== -->
+    <div id="view-login" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 rounded-[32px] w-full max-w-4xl shadow-2xl border border-slate-800 overflow-hidden grid grid-cols-1 md:grid-cols-12 animate-in fade-in zoom-in-95 duration-200">
+            <!-- Columna Izquierda: Imagen Estética -->
+            <div class="hidden md:block md:col-span-5 bg-cover bg-center relative" style="background-image: url('https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=600');">
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+                <div class="absolute bottom-6 left-6 right-6">
+                    <span class="text-[10px] bg-ubipet-500 text-white font-black px-2.5 py-1 rounded-full uppercase tracking-wider">UbiPet Seguridad</span>
+                    <h4 class="text-lg font-black text-white mt-2 leading-tight">Mantén a Luffy y tus mascotas siempre en el radar</h4>
+                    <p class="text-xs text-slate-300 mt-1">Accede al mapa de rastreo activo con tu cuenta personalizada.</p>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Formulario de Credenciales -->
+            <div class="md:col-span-7 p-8 sm:p-12 flex flex-col justify-between relative">
+                <button onclick="hideLogin()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex items-center space-x-2 text-ubipet-500 mb-1">
+                            <i class="fa-solid fa-paw text-xl"></i>
+                            <span class="text-sm font-bold tracking-tight text-white">Ubi<span class="text-ubipet-500">Pet</span></span>
+                        </div>
+                        <h2 class="text-2xl font-black text-white">Acceso a la plataforma</h2>
+                        <p class="text-xs text-slate-400 mt-1">Accede con tu correo o crea una cuenta para registrar tus mascotas.</p>
+                    </div>
+
+                    <!-- Campos de Entrada -->
+                    <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Correo electrónico</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><i class="fa-solid fa-user text-sm"></i></span>
+                                <input id="login-username" type="email" autocomplete="email" required placeholder="tu@correo.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-xs text-white placeholder-slate-600 outline-none focus:ring-2 focus:ring-ubipet-500 focus:border-transparent transition-all">
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contraseña</label>
+                                <a href="#" onclick="resetPassword(event)" class="text-[10px] text-ubipet-500 hover:underline">¿Olvidaste tu clave?</a>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><i class="fa-solid fa-lock text-sm"></i></span>
+                                <input id="login-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Ingresa tu contraseña" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-xs text-white placeholder-slate-600 outline-none focus:ring-2 focus:ring-ubipet-500 focus:border-transparent transition-all">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-ubipet-500 hover:bg-ubipet-600 text-white text-xs font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-500/10 hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2">
+                            Iniciar Sesión <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                        </button>
+                    </form>
+
+                    <button type="button" onclick="handleRegisterSubmit()" class="w-full border border-slate-700 hover:border-ubipet-500 text-slate-300 hover:text-white text-xs font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                        Crear cuenta con este correo <i class="fa-solid fa-user-plus"></i>
+                    </button>
+
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800/60">
+                        <p class="text-[10px] text-slate-400">La cuenta se valida con Supabase Auth. Si está habilitada la confirmación por correo, confirma el enlace antes de iniciar sesión.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- PANTALLA 3: MÓDULO PWA USUARIO REGISTRADO (LUFFYTEST) -->
+    <!-- ============================================== -->
+    <div id="view-user-app" class="hidden min-h-screen w-full flex items-center justify-center p-0 sm:p-4 bg-slate-950">
+        <!-- CONTENEDOR DE DISPOSITIVO MÓVIL MOCK -->
+        <div class="relative w-full max-w-md bg-white h-screen sm:h-[840px] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-gray-100 sm:border-gray-800">
+            <!-- BARRA DE ESTADO DEL TELÉFONO (Simulada) -->
+            <div class="bg-slate-900 text-white text-xs px-6 py-2 flex justify-between items-center z-50 select-none">
+                <span class="font-semibold" id="phone-time">12:00</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-[10px] bg-ubipet-500 text-white px-1.5 py-0.5 rounded-full font-bold">UbiPet PWA</span>
+                    <i class="fa-solid fa-signal text-[10px]"></i>
+                    <i class="fa-solid fa-wifi text-[10px]"></i>
+                    <i class="fa-solid fa-battery-three-quarters text-sm text-green-400"></i>
+                </div>
+            </div>
+
+            <!-- BANNER DE ALERTA SOS GLOBAL -->
+            <div id="sos-global-banner" class="hidden bg-red-600 text-white text-xs font-semibold py-2 px-4 flex justify-between items-center animate-pulse z-40 p-2 text-center">
+                <span class="flex items-center gap-2 mx-auto justify-center text-[11px]">
+                    <i class="fa-solid fa-triangle-exclamation text-white"></i>
+                    <span id="sos-alert-text">¡ALERTA SOS ACTIVA! Luffy se ha extraviado</span>
+                </span>
+                <button onclick="deactivateSOS()" class="bg-white text-red-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase hover:bg-gray-100 flex-shrink-0 ml-2">
+                    Detener
+                </button>
+            </div>
+
+            <!-- CONTENIDO PRINCIPAL -->
+            <div class="flex-1 relative overflow-hidden bg-gray-50">
+
+                <!-- 1. MÓDULO DE MAPA (TRACKING VIVO) -->
+                <section id="tab-map" class="absolute inset-0 flex flex-col z-20">
+                    <div class="map-container">
+                        <div id="map" class="h-full w-full"></div>
+
+                        <!-- Botones flotantes del Mapa -->
+                        <div class="absolute top-4 right-4 z-30 flex flex-col space-y-2">
+                            <button onclick="recenterMap()" class="bg-white p-3 rounded-full shadow-lg text-ubipet-500 hover:bg-gray-100 active:scale-95 transition-transform flex items-center justify-center w-11 h-11" title="Centrar en la mascota">
+                                <i class="fa-solid fa-crosshairs text-lg"></i>
+                            </button>
+                            <button onclick="toggleMapSat()" class="bg-white p-3 rounded-full shadow-lg text-gray-600 hover:bg-gray-100 active:scale-95 transition-transform flex items-center justify-center w-11 h-11" title="Cambiar Vista">
+                                <i class="fa-solid fa-layer-group text-lg"></i>
+                            </button>
+                        </div>
+
+                        <!-- Caja Flotante de Datos de Luffy -->
+                        <div class="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-blue-50 z-30 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="relative">
+                                        <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=150" alt="Mascota" class="w-12 h-12 rounded-full object-cover border-2 border-ubipet-500">
+                                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-ubipet-success rounded-full border-2 border-white"></span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                                            <span id="map-pet-name">Mi mascota</span>
+                                            <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">GPS Activo</span>
+                                        </h4>
+                                        <p class="text-[11px] text-gray-500 flex items-center gap-1">
+                                            <i class="fa-solid fa-location-dot text-red-500"></i>
+                                            <span id="gps-address">Urb. Chacao, Caracas</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex items-center justify-end text-green-500 gap-1 font-bold text-sm" id="battery-status">
+                                        <i class="fa-solid fa-battery-three-quarters"></i>
+                                        <span>84%</span>
+                                    </div>
+                                    <span class="text-[10px] text-gray-400 block" id="last-update">Hace un momento</span>
+                                </div>
+                            </div>
+
+                            <!-- Métricas del Dispositivo + Teléfono -->
+                            <div class="grid grid-cols-2 gap-2 text-center text-[11px] bg-blue-50/50 p-2 rounded-xl">
+                                <div class="flex items-center justify-center gap-1.5 text-gray-700 font-medium border-r border-blue-100">
+                                    <span class="w-2.5 h-2.5 bg-blue-600 rounded-full animate-ping"></span>
+                                    <span>Mi Teléfono (Dispositivo)</span>
+                                </div>
+                                <div class="flex items-center justify-center gap-1.5 text-gray-700 font-medium">
+                                    <i class="fa-solid fa-shield-dog text-ubipet-500"></i>
+                                    <span>Collar GPS <span id="map-collar-name">Mi mascota</span></span>
+                                </div>
+                            </div>
+
+                            <!-- Métricas Rápidas del Collar -->
+                            <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+                                <div class="bg-gray-50 p-2 rounded-xl">
+                                    <span class="text-[9px] text-gray-400 block uppercase font-medium">Conexión</span>
+                                    <span class="text-xs font-semibold text-gray-700 flex items-center justify-center gap-1 mt-0.5">
+                                        <i class="fa-solid fa-tower-cell text-blue-500 text-[10px]"></i> 4G LTE
+                                    </span>
+                                </div>
+                                <div class="bg-gray-50 p-2 rounded-xl">
+                                    <span class="text-[9px] text-gray-400 block uppercase font-medium">Distancia</span>
+                                    <span class="text-xs font-semibold text-gray-700 flex items-center justify-center gap-1 mt-0.5" id="gps-distance">
+                                        <i class="fa-solid fa-person-walking text-blue-500 text-[10px]"></i> 120m
+                                    </span>
+                                </div>
+                                <div class="bg-gray-50 p-2 rounded-xl">
+                                    <span class="text-[9px] text-gray-400 block uppercase font-medium">Zona Segura</span>
+                                    <span class="text-xs font-semibold text-green-600 flex items-center justify-center gap-1 mt-0.5" id="safezone-status">
+                                        <i class="fa-solid fa-circle-check text-[10px]"></i> Dentro
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. MÓDULO COMUNIDAD (CLUB DE LAS HUELLAS) -->
+                <section id="tab-community" class="absolute inset-0 flex flex-col z-10 hidden">
+                    <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+                        <div class="flex items-center space-x-2">
+                            <div class="bg-ubipet-100 p-1.5 rounded-xl">
+                                <i class="fa-solid fa-paw text-ubipet-500 text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-gray-800 text-base">Club de las Huellas</h3>
+                                <p class="text-[10px] text-gray-400 font-medium">Comunidad canina en Caracas</p>
+                            </div>
+                        </div>
+                        <button onclick="createNewPostModal()" class="bg-ubipet-500 hover:bg-ubipet-600 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-semibold transition-all">
+                            <i class="fa-solid fa-plus text-[10px]"></i> Publicar
+                        </button>
+                    </div>
+
+                    <!-- Sub-menú superior: Feed vs Mi Perfil -->
+                    <div class="bg-gray-100 border-b border-gray-200 px-4 py-2 flex justify-center space-x-2">
+                        <button onclick="switchClubSubTab('all')" id="btn-club-all" class="flex-1 bg-blue-600 text-white text-xs font-bold py-1.5 rounded-xl transition-all shadow-sm">
+                            Todos los Posts
+                        </button>
+                        <button onclick="switchClubSubTab('my-profile')" id="btn-club-my" class="flex-1 bg-white text-gray-500 text-xs font-semibold py-1.5 rounded-xl transition-all border border-gray-100">
+                            Mi Perfil
+                        </button>
+                    </div>
+
+                    <!-- Feed de todos los posts -->
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-24" id="community-feed" aria-live="polite">
+                        <div class="py-12 text-center text-xs text-gray-400">Inicia sesión para cargar las publicaciones.</div>
+                    </div>
+
+                    <!-- Grid "Mi Perfil" (Instagram style) -->
+                    <div class="flex-1 overflow-y-auto p-4 no-scrollbar pb-24 hidden bg-slate-50" id="club-my-profile-grid">
+                        <div class="glass-panel rounded-2xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="relative flex-shrink-0">
+                                    <img id="club-profile-image" src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=300" alt="Foto de perfil" class="w-12 h-12 rounded-full object-cover border-2 border-ubipet-500">
+                                    <span id="club-profile-verified-badge" class="hidden absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-600 text-white border-2 border-white items-center justify-center text-[9px]" title="Perfil verificado" aria-label="Perfil verificado"><i class="fa-solid fa-check"></i></span>
+                                </div>
+                                <div>
+                                    <h4 id="club-profile-name" class="font-extrabold text-sm text-gray-800">Mi Perfil</h4>
+                                    <p class="text-xs text-gray-400">Tu actividad en el Club</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-blue-100 text-blue-700 font-extrabold px-3 py-1 rounded-full uppercase" id="posts-counter">0 Posts</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2" id="grid-user-photos">
+                            <!-- Inyectado dinámicamente -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. BOTÓN SOS -->
+                <section id="tab-sos" class="absolute inset-0 flex flex-col z-10 hidden">
+                    <div class="flex-1 overflow-y-auto px-6 py-8 flex flex-col justify-between items-center text-center pb-24 no-scrollbar">
+                        <div class="w-full">
+                            <span class="text-xs font-bold text-red-600 tracking-wider bg-red-50 px-3.5 py-1.5 rounded-full uppercase">Alerta de Emergencia</span>
+                            <h2 class="text-2xl font-black text-gray-800 mt-4 leading-tight">¿Se ha extraviado tu mascota?</h2>
+                            <p class="text-sm text-gray-500 mt-2 max-w-xs mx-auto">Al activar la alerta, enviaremos una notificación push inmediata a todos los usuarios de UbiPet dentro de un radio de 10 km.</p>
+                        </div>
+                        <div class="relative my-8 flex items-center justify-center">
+                            <div id="sos-pulse-ring-1" class="absolute w-64 h-64 rounded-full bg-red-500/10 radar-ring"></div>
+                            <div id="sos-pulse-ring-2" class="absolute w-52 h-52 rounded-full bg-red-500/20 radar-ring" style="animation-delay: 0.7s;"></div>
+                            <button id="main-sos-btn" onclick="triggerSOSConfirmation()" class="relative z-20 w-44 h-44 bg-gradient-to-br from-red-500 to-red-600 rounded-full shadow-[0_15px_30px_rgba(239,68,68,0.4)] flex flex-col items-center justify-center text-white border-8 border-white focus:outline-none transition-all active:scale-95 duration-200">
+                                <i class="fa-solid fa-triangle-exclamation text-4xl mb-2 drop-shadow-md"></i>
+                                <span class="font-extrabold text-base tracking-wide uppercase">ACTIVAR SOS</span>
+                            </button>
+                        </div>
+                        <div class="w-full bg-slate-50 p-4 rounded-2xl border border-gray-100 flex items-start space-x-3 text-left">
+                            <div class="bg-red-50 p-2.5 rounded-xl text-red-500 mt-0.5"><i class="fa-solid fa-bell text-sm"></i></div>
+                            <div>
+                                <h4 class="font-bold text-xs text-gray-800">¿Qué pasará al activarlo?</h4>
+                                <p class="text-[11px] text-gray-500 mt-1 leading-relaxed">Se fijará la última ubicación registrada (<span class="font-semibold text-gray-700">Urb. Chacao</span>) y se compartirá un carnet digital de Luffy en los teléfonos de la comunidad de Caracas en un radio de 10km.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3.5. AYUDA SOLIDARIA -->
+                <section id="tab-help" class="absolute inset-0 flex flex-col z-10 hidden">
+                    <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+                        <div class="flex items-center space-x-2">
+                            <div class="bg-cyan-50 p-1.5 rounded-xl"><i class="fa-solid fa-hand-holding-heart text-cyan-600 text-lg"></i></div>
+                            <div>
+                                <h3 class="font-extrabold text-gray-800 text-sm">UbiPet Solidario</h3>
+                                <p class="text-[10px] text-gray-400 font-medium">Caracas es nuestra manada</p>
+                            </div>
+                        </div>
+                        <button onclick="openHelpReportModal()" class="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-semibold transition-all shadow-sm">
+                            <i class="fa-solid fa-circle-plus text-[10px]"></i> Reportar
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-24">
+                        <div class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white p-4 rounded-2xl shadow-sm relative overflow-hidden">
+                            <h4 class="font-extrabold text-xs uppercase tracking-wider text-cyan-100 flex items-center gap-1.5"><i class="fa-solid fa-circle-info"></i> Red Solidaria</h4>
+                            <p class="text-xs font-semibold mt-1 leading-relaxed">Colabora reportando avistamientos de perritos abandonados o comederos/bebederos activos en la calle.</p>
+                        </div>
+
+                        <!-- Filtros Rápidos -->
+                        <div class="flex gap-2 text-xs">
+                            <button onclick="filterHelp('all')" id="filter-all" class="flex-1 bg-cyan-600 text-white font-bold py-2 rounded-xl transition-all">Todos</button>
+                            <button onclick="filterHelp('abandoned')" id="filter-abandoned" class="flex-1 bg-white text-gray-600 font-semibold py-2 rounded-xl transition-all border border-gray-100">Avistamientos</button>
+                            <button onclick="filterHelp('resource')" id="filter-resource" class="flex-1 bg-white text-gray-600 font-semibold py-2 rounded-xl transition-all border border-gray-100">Recursos</button>
+                        </div>
+
+                        <div class="space-y-3" id="help-reports-list">
+                            <!-- Reportes comunitarios iniciales -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. PERFIL Y CARNET DIGITAL -->
+                <section id="tab-profile" class="absolute inset-0 flex flex-col z-10 hidden">
+                    <div class="bg-white px-4 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 z-30">
+                        <h3 class="font-extrabold text-gray-800 text-base">Mi Mascota</h3>
+                        <!-- Botón de Cerrar Sesión -->
+                        <button onclick="logoutAll()" class="bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i> Salir
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-24">
+                        <!-- Carnet Virtual -->
+                        <div class="glass-panel glass-blue text-white p-5 rounded-3xl shadow-xl relative overflow-hidden">
+                            <div class="flex justify-between items-start relative z-10">
+                                <div>
+                                    <span class="bg-white/20 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-widest">CARNET DIGITAL</span>
+                                    <h3 id="carnet-pet-name" class="text-2xl font-black mt-2 tracking-tight">Mi mascota</h3>
+                                    <p id="carnet-pet-breed" class="text-xs text-blue-100">Registra tu dispositivo GPS</p>
+                                </div>
+                                <img id="carnet-pet-image" src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=640" alt="Foto de la mascota" class="w-16 h-16 rounded-2xl object-cover border-2 border-white/40">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-white/20 relative z-10 text-xs">
+                                <div>
+                                    <p class="text-[9px] uppercase tracking-wider text-blue-200">Edad</p>
+                                    <p id="carnet-pet-age" class="font-bold">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] uppercase tracking-wider text-blue-200">ID Collar</p>
+                                    <p id="carnet-pet-imei" class="font-bold">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] uppercase tracking-wider text-blue-200">Responsable</p>
+                                    <p id="carnet-owner" class="font-bold">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] uppercase tracking-wider text-blue-200">Contacto</p>
+                                    <p id="carnet-phone" class="font-bold">-</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN OBLIGATORIA DE VERIFICACIÓN PARA PUBLICAR -->
+                        <div id="verification-card" class="glass-panel p-5 rounded-2xl border border-blue-100 shadow-sm space-y-3">
+                            <h4 class="font-extrabold text-blue-950 text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-shield-cat text-blue-600"></i> Verificación Social del Club
+                            </h4>
+                            <p class="text-[10px] text-gray-500 leading-relaxed">
+                                Para poder publicar fotos libres en la red social "Club de las Huellas", es obligatorio completar tu verificación y subir tu foto graciosa oficial.
+                            </p>
+                            <div class="space-y-2 text-xs text-gray-800">
+                                <div>
+                                    <label class="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Enlace de tu Instagram</label>
+                                    <input id="verify-instagram" type="text" placeholder="https://instagram.com/tu_mascota" class="w-full bg-white border border-blue-200 rounded-xl p-2.5 text-xs text-gray-800 outline-none focus:ring-1 focus:ring-ubipet-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Foto Graciosa de Luffy</label>
+                                    <input id="verify-photo-input" type="file" accept="image/*" class="hidden" onchange="handleVerificationPhoto(event)">
+                                    <button type="button" onclick="document.getElementById('verify-photo-input').click()" class="w-full bg-white border border-dashed border-blue-300 hover:border-blue-500 rounded-xl p-2.5 text-xs text-blue-600 flex items-center justify-center gap-2 font-semibold transition-colors">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> <span id="upload-status-text">Seleccionar Imagen</span>
+                                    </button>
+                                    <div id="verify-photo-preview-container" class="hidden mt-2 flex justify-center">
+                                        <img id="verify-photo-preview" src="" class="w-20 h-20 object-cover rounded-xl border border-blue-200">
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2 pt-1">
+                                    <input id="verify-age-checkbox" type="checkbox" class="mt-0.5 rounded text-ubipet-500 focus:ring-ubipet-500">
+                                    <label for="verify-age-checkbox" class="text-[9px] text-gray-500 leading-tight">
+                                        Acepto tener 18 años o más y que entiendo que es una red social exclusiva de mascotas.
+                                    </label>
+                                </div>
+                                <button id="verify-submit-btn" type="button" onclick="submitVerification()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md mt-2">
+                                    <i class="fa-solid fa-user-check"></i> Activar y Publicar Bienvenida
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Recordatorios de Salud -->
+                        <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                            <h4 class="font-extrabold text-gray-800 text-sm flex items-center gap-2 mb-3">
+                                <i class="fa-solid fa-heart-pulse text-red-500"></i> Control de Salud Mensual
+                            </h4>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50 cursor-pointer" onclick="toggleTask(this)">
+                                    <div class="flex items-center space-x-3 text-xs">
+                                        <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-ubipet-500"><i class="fa-solid fa-syringe"></i></div>
+                                        <div>
+                                            <h5 class="font-bold text-gray-800">Sextuple Canina (Refuerzo)</h5>
+                                            <p class="text-[10px] text-gray-400">Veterinaria Las Mercedes</p>
+                                        </div>
+                                    </div>
+                                    <div class="status-box text-ubipet-warning"><i class="fa-regular fa-circle-check text-lg"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- NAVEGACIÓN INFERIOR (Empresarial con división azul y sombra) -->
+            <div class="bg-white border-t-2 border-blue-500 px-2 py-3 flex justify-around items-center z-40 shadow-[0_-8px_25px_rgba(37,99,235,0.2)] relative">
+                <button onclick="switchTab('map')" id="nav-map" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-ubipet-500 transition-all relative">
+                    <i class="fa-solid fa-map-location-dot text-lg"></i>
+                    <span class="text-[9px] font-bold">Rastreo</span>
+                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full" id="dot-map"></span>
+                </button>
+                <button onclick="switchTab('community')" id="nav-community" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-gray-400 transition-all relative">
+                    <i class="fa-solid fa-users-viewfinder text-lg"></i>
+                    <span class="text-[9px] font-medium">Club</span>
+                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full hidden" id="dot-community"></span>
+                </button>
+                <!-- Botón de alerta SOS con borde blanco más grande y pulso carmesí -->
+                <button onclick="switchTab('sos')" id="nav-sos" class="flex flex-col items-center -mt-9 bg-gradient-to-br from-red-500 to-red-600 text-white w-16 h-16 rounded-full shadow-[0_5px_20px_rgba(239,68,68,0.5)] border-4 border-white justify-center z-50 transform hover:scale-105 active:scale-95 transition-transform duration-200">
+                    <i class="fa-solid fa-bell text-xl"></i>
+                </button>
+                <button onclick="switchTab('help')" id="nav-help" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-gray-400 transition-all relative">
+                    <i class="fa-solid fa-hand-holding-heart text-lg"></i>
+                    <span class="text-[9px] font-medium">Solidario</span>
+                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full hidden" id="dot-help"></span>
+                </button>
+                <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-gray-400 transition-all relative">
+                    <i class="fa-solid fa-address-card text-lg"></i>
+                    <span class="text-[9px] font-medium">Carnet</span>
+                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full hidden" id="dot-profile"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- PANTALLA 4: CONSOLA DE SUPER ADMINISTRADOR -->
+    <!-- ============================================== -->
+    <div id="view-admin" class="hidden min-h-screen bg-slate-950 flex flex-col md:flex-row text-slate-100">
+        <!-- Sidebar Izquierdo Admin -->
+        <aside class="w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 p-6 flex flex-col justify-between">
+            <div class="space-y-8">
+                <!-- Logo -->
+                <div class="flex items-center space-x-2.5">
+                    <div class="bg-red-500 p-2 rounded-2xl text-white shadow-lg shadow-red-500/10">
+                        <i class="fa-solid fa-user-shield text-base"></i>
+                    </div>
+                    <div>
+                        <span class="text-sm font-black text-white block">UbiPet Console</span>
+                        <span class="text-[9px] text-red-500 font-extrabold uppercase tracking-wider">Super Administrador</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs Admin -->
+                <nav class="space-y-2 text-xs">
+                    <button onclick="switchAdminSubView('dashboard')" id="btn-admin-dashboard" class="w-full text-left bg-slate-800 text-white font-extrabold py-3 px-4 rounded-xl flex items-center gap-3 transition-colors">
+                        <i class="fa-solid fa-chart-line text-slate-400"></i> Panel de Control
+                    </button>
+                    <button onclick="switchAdminSubView('connected')" id="btn-admin-connected" class="w-full text-left text-slate-400 hover:bg-slate-800/50 hover:text-white py-3 px-4 rounded-xl flex items-center gap-3 transition-colors">
+                        <i class="fa-solid fa-wifi text-slate-400 animate-pulse"></i> Usuarios Conectados
+                    </button>
+                </nav>
+            </div>
+
+            <div class="pt-6 border-t border-slate-800 space-y-3">
+                <div class="flex items-center space-x-3 p-2 bg-slate-950/60 rounded-xl">
+                    <div class="w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center font-bold text-xs">SA</div>
+                    <div>
+                        <h6 class="text-xs font-bold text-white leading-none">SuperAdmin</h6>
+                        <span class="text-[9px] text-slate-500">Nivel de Root</span>
+                    </div>
+                </div>
+                <button onclick="logoutAll()" class="w-full bg-slate-800 hover:bg-red-950/40 hover:text-red-400 text-slate-400 text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <!-- Contenedor Derecho Principal de Trabajo Admin -->
+        <main class="flex-1 p-6 md:p-10 space-y-6 overflow-y-auto no-scrollbar">
+
+            <!-- SUB-VISTA 1: PANEL DE CONTROL GENERAL (DASHBOARD) -->
+            <div id="admin-sub-dashboard" class="space-y-6">
+                <!-- Encabezado -->
+                <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                    <div>
+                        <h1 class="text-2xl font-black text-white">Panel de Control General</h1>
+                        <p class="text-xs text-slate-400 mt-1">Socio de administración de hardware GPS y base de clientes en Caracas.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 text-xs bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-slate-300">
+                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping"></span> Servidor Conectado (API Activa)
+                    </span>
+                </div>
+
+                <!-- KPI Cards Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Collares Vendidos</span>
+                            <span id="kpi-total" class="text-2xl font-black text-white block mt-1">4</span>
+                        </div>
+                        <div class="w-11 h-11 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-id-card"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Señal Activa GPS</span>
+                            <span id="kpi-active" class="text-2xl font-black text-green-500 block mt-1">3</span>
+                        </div>
+                        <div class="w-11 h-11 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-satellite-dish"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Emergencias SOS</span>
+                            <span id="kpi-sos" class="text-2xl font-black text-red-500 block mt-1">0</span>
+                        </div>
+                        <div class="w-11 h-11 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-circle-exclamation text-lg animate-pulse"></i></div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Batería Promedio</span>
+                            <span class="text-2xl font-black text-white block mt-1">79%</span>
+                        </div>
+                        <div class="w-11 h-11 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-battery-three-quarters"></i></div>
+                    </div>
+                </div>
+
+                <!-- Formulario + Base de Datos Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Registro Nuevo Usuario (GPS) -->
+                    <div class="glass-panel-dark lg:col-span-4 p-6 rounded-2xl border border-slate-800 space-y-4">
+                        <div>
+                            <h3 class="font-extrabold text-sm text-white flex items-center gap-2">
+                                <i class="fa-solid fa-circle-plus text-blue-500"></i> Registrar Nuevo Cliente GPS
+                            </h3>
+                            <p class="text-[10px] text-slate-500 mt-1">Asigna un nuevo collar comprado a un dueño de mascota.</p>
+                        </div>
+
+                        <form onsubmit="handleNewUserRegister(event, this)" class="space-y-3.5 text-xs">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Correo de la cuenta cliente</label>
+                                <input id="reg-email" name="customerEmail" type="email" required maxlength="254" placeholder="cliente@correo.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none focus:ring-1 focus:ring-ubipet-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Contraseña del Cliente</label>
+                                <input id="reg-password" name="customerPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="Contraseña inicial para el cliente" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none focus:ring-1 focus:ring-ubipet-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre Mascota</label>
+                                <input id="reg-pet-name" name="petName" type="text" required maxlength="100" placeholder="Ej: Toby" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none focus:ring-1 focus:ring-ubipet-500">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Raza</label>
+                                    <input id="reg-pet-breed" name="breed" type="text" required maxlength="100" placeholder="Ej: Beagle" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Edad Mascota</label>
+                                    <input id="reg-pet-age" name="age" type="text" required maxlength="40" placeholder="Ej: 1 año" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Teléfono Dueño</label>
+                                <input id="reg-phone" name="phone" type="tel" required maxlength="40" placeholder="Ej: +58 412-0000000" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ID Único Collar GPS</label>
+                                <input id="reg-gps-id" name="collarId" type="text" required maxlength="80" placeholder="Ej: UP-1234-VE" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none font-mono">
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-1.5 shadow-md">
+                                <i class="fa-solid fa-save"></i> Guardar y Activar GPS
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Tabla de Clientes Registrados -->
+                    <div class="lg:col-span-8 bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div>
+                                <h3 class="font-extrabold text-sm text-white">Base de Clientes</h3>
+                                <p class="text-[10px] text-slate-500 mt-1">Lista general de dispositivos activos en el territorio nacional.</p>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs text-slate-300">
+                                    <thead>
+                                        <tr class="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
+                                            <th class="pb-3 pl-2">Mascota</th>
+                                            <th class="pb-3">ID Collar</th>
+                                            <th class="pb-3">Dueño</th>
+                                            <th class="pb-3">Contacto</th>
+                                            <th class="pb-3 text-right pr-2">Carnet</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-user-table" class="divide-y divide-slate-800/50">
+                                        <!-- Generado dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-VISTA 2: USUARIOS CONECTADOS Y TELEMETRÍA (TELEMETRY) -->
+            <div id="admin-sub-connected" class="hidden space-y-6">
+                <div>
+                    <h1 class="text-2xl font-black text-white">Transmisión de Datos en Vivo</h1>
+                    <p class="text-xs text-slate-400 mt-1">Conexión de telemetría de los collares móviles activos en el mapa.</p>
+                </div>
+
+                <!-- Lista de Señales GPS Activas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="telemetry-grid">
+                    <!-- Se alimenta dinámicamente -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE DETALLE CARNET ADMIN -->
+    <div id="modal-admin-carnet" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 rounded-[32px] w-full max-w-sm p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-[10px] bg-red-500/10 text-red-500 font-extrabold px-3 py-1 rounded-full uppercase">Previsualización Oficial</span>
+                <button onclick="closeModal('modal-admin-carnet')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="admin-carnet-card-content" class="p-5 rounded-3xl text-white relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-800 shadow-xl">
+                <!-- Dinámico -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modales de Confirmación y SOS -->
+    <div id="modal-sos-confirm" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm p-6 text-center shadow-2xl border border-red-100">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 pulse-effect">
+                <i class="fa-solid fa-circle-exclamation text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-extrabold text-gray-900">¿Confirmar Alerta SOS?</h3>
+            <p class="text-xs text-gray-500 mt-2 leading-relaxed">Esta acción emitirá una alerta pública de mascota perdida en todo Caracas con la ubicación actual de Luffy. Se enviará un aviso masivo a los usuarios dentro de un radio de 10 km.</p>
+            <div class="mt-6 flex flex-col space-y-2">
+                <button onclick="activateSOS()" class="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-3 rounded-2xl">SÍ, ACTIVAR ALERTA</button>
+                <button onclick="closeModal('modal-sos-confirm')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold py-3 rounded-2xl">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Éxito SOS -->
+    <div id="modal-sos-success" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm p-6 text-center shadow-2xl border border-green-100">
+            <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-square-rss text-3xl animate-pulse"></i></div>
+            <h3 class="text-xl font-extrabold text-gray-900">¡Alerta SOS Publicada!</h3>
+            <p class="text-xs text-gray-500 mt-2 leading-relaxed">El mapa y el collar GPS están transmitiendo en tiempo real estricto. Las veterinarias y rescatistas en Caracas han sido notificados.</p>
+            <div class="mt-6"><button onclick="closeModal('modal-sos-success')" class="w-full bg-ubipet-500 hover:bg-ubipet-600 text-white text-sm font-bold py-3 rounded-2xl shadow-md">Entendido, ver mapa</button></div>
+        </div>
+    </div>
+
+    <!-- Modal para Nueva Publicación de Comunidad -->
+    <div id="modal-new-post" data-motion-modal class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="glass-panel modal-panel rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-white/60">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold text-gray-900">Crear Publicación</h3>
+                <button onclick="closeModal('modal-new-post')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="submitNewPost(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">¿Qué está haciendo tu mascota?</label>
+                        <textarea id="post-caption" required placeholder="¡Describe la aventura de hoy!..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-ubipet-500 outline-none h-24 resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label for="post-media-file" class="block text-xs font-bold text-gray-500 uppercase mb-1">Imagen o Reel (máximo 7 segundos)</label>
+                        <input id="post-media-file" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" required onchange="handleVideoSelection(event)" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-700">
+                        <p id="post-media-status" class="text-[10px] text-gray-500 mt-1">Elige una imagen o un video de hasta 7 segundos.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Ubicación en Caracas</label>
+                        <input id="post-location" type="text" value="El Rosal, Caracas" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800">
+                    </div>
+                </div>
+                <div class="mt-6 flex space-x-2">
+                    <button type="button" onclick="closeModal('modal-new-post')" class="flex-1 bg-gray-100 text-gray-700 text-xs font-semibold py-3 rounded-2xl">Cancelar</button>
+                    <button id="post-submit-button" type="submit" class="flex-1 bg-ubipet-500 text-white text-xs font-bold py-3 rounded-2xl shadow-md" aria-busy="false">
+                        <span id="post-submit-label">Publicar Club</span>
+                        <span id="post-upload-indicator" class="hidden"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Subiendo...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Reportar Ayuda Comunitaria -->
+    <div id="modal-help-report" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold text-gray-900">Crear Alerta Solidaria</h3>
+                <button onclick="closeModal('modal-help-report')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="submitHelpReport(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tipo de Reporte</label>
+                        <select id="help-type" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-700 outline-none focus:ring-2 focus:ring-cyan-500">
+                            <option value="abandoned">🐕 Mascota Abandonada o Herida</option>
+                            <option value="resource">💧 Punto de Alimento y Agua</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título de la Alerta</label>
+                        <input id="help-title" type="text" required placeholder="Ej: Mestizo asustado cerca de la plaza" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800 focus:ring-2 focus:ring-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descripción / Detalles</label>
+                        <textarea id="help-desc" required placeholder="¿Cómo está el perrito?..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs text-gray-800 focus:ring-2 focus:ring-cyan-500 h-20 resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Sector o Zona (Caracas)</label>
+                        <select id="help-coord-preset" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-700 outline-none">
+                            <option value="Altamira">Altamira (Cerca de la plaza)</option>
+                            <option value="Bello Campo">Bello Campo (Frente al elevado)</option>
+                            <option value="Chacao">Chacao Centro</option>
+                            <option value="El Rosal">El Rosal (Av. Francisco de Miranda)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 flex space-x-2">
+                    <button type="button" onclick="closeModal('modal-help-report')" class="flex-1 bg-gray-100 text-gray-700 text-xs font-semibold py-3 rounded-2xl">Cancelar</button>
+                    <button type="submit" class="flex-1 bg-cyan-600 text-white text-xs font-bold py-3 rounded-2xl shadow-md">Publicar Alerta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        // CONFIGURACIÓN DE SUPABASE Y FLUJOS DE TELEMETRÍA
+        const SUPABASE_URL = 'https://afsvdjbtkhshtppakqbe.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_yExu86DheUB7tS_72AQcxg_90HMSAvt';
+        const SUPER_ADMIN_EMAIL = 'admin@ubipet.com';
+        const MAX_REEL_DURATION_SECONDS = 7.5;
+        const MAX_MEDIA_FILE_SIZE = 100 * 1024 * 1024;
+        const supabaseClient = window.supabase?.createClient
+            ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+            : null;
+        const accountCreationClient = window.supabase?.createClient
+            ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+            })
+            : null;
+        let currentUser = null;
+        let activeTab = 'map';
+        let activeAdminSubView = 'dashboard';
+        let map;
+        let mainMarker; // Mascota Luffy
+        let deviceMarker; // Teléfono del Usuario
+        let livePathLine;
+        let searchRadarCircle = null;
+        let currentMapStyle = 'streets';
+        let isSOSMode = false;
+        let routeIndex = 0;
+        let helpMapMarkersList = [];
+        let gpsSimulationInterval = null;
+
+        // Variables de Verificación Social
+        let isUserVerified = false;
+        let verificationPhotoBase64 = '';
+        let verificationPhotoUrl = '';
+        let userProfile = null;
+        let currentFeedPosts = [];
+        let postLikeCounts = new Map();
+        let userLikedPostIds = new Set();
+        let postComments = new Map();
+        let myProfilePosts = [];
+
+        // Coordenadas fijas para la simulación del dispositivo móvil del dueño (Caracas, Chacao)
+        const deviceCoords = [10.4930, -66.8370];
+
+        let registeredUsers = [];
+
+        const helpPresetLocations = {
+            'Altamira': { lat: 10.4960, lng: -66.8300, address: "Plaza Altamira, Caracas" },
+            'Bello Campo': { lat: 10.4918, lng: -66.8345, address: "Sector Bello Campo, Caracas" },
+            'Chacao': { lat: 10.4935, lng: -66.8360, address: "Urb. Chacao, Caracas" },
+            'El Rosal': { lat: 10.4910, lng: -66.8390, address: "El Rosal, Caracas" }
+        };
+
+        // Ruta de Luffy paseando por Chacao
+        const simulateRoute = [
+            { lat: 10.4935, lng: -66.8360, address: "Urb. Chacao, Caracas", distance: "120m", battery: "84%" },
+            { lat: 10.4942, lng: -66.8382, address: "Av. Francisco de Miranda, Chacao", distance: "180m", battery: "83%" },
+            { lat: 10.4958, lng: -66.8395, address: "Cerca de CC San Ignacio, Chacao", distance: "310m", battery: "83%" },
+            { lat: 10.4965, lng: -66.8370, address: "Calle Elice, Chacao", distance: "250m", battery: "82%" },
+            { lat: 10.4918, lng: -66.8345, address: "Sector Bello Campo, Caracas", distance: "450m", battery: "81%" }
+        ];
+
+        const mapLayers = {
+            streets: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            streetsAttribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012',
+            satelliteAttribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+            satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        };
+
+        window.onload = async function() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            refreshAdminViews();
+            addInitialHelpReportsFeed();
+            updateMyProfileGrid();
+
+            window.addEventListener('storage', handleCrossDeviceSync);
+            if (!supabaseClient) {
+                showToast("Supabase no disponible", "No se pudo cargar la biblioteca de conexión. Revisa tu conexión a internet e inténtalo de nuevo.", "error");
+                return;
+            }
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (error) {
+                showToast("Error de sesión", error.message, "error");
+                return;
+            }
+            if (data.session) await openAuthenticatedView(data.session.user);
+        };
+
+        // RELOJ
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+            hours = hours < 10 ? '0' + hours : hours;
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            const element = document.getElementById('phone-time');
+            if (element) element.innerText = hours + ':' + minutes;
+        }
+
+        function showLogin() {
+            document.getElementById('view-login').classList.remove('hidden');
+        }
+
+        function hideLogin() {
+            document.getElementById('view-login').classList.add('hidden');
+        }
+
+        function authErrorMessage(error) {
+            if (error.message?.includes('Invalid login credentials')) return "Correo o contraseña incorrectos.";
+            if (error.message?.includes('User already registered')) return "Ya existe una cuenta con ese correo. Inicia sesión.";
+            return error.message || "No se pudo completar la operación. Inténtalo de nuevo.";
+        }
+
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
+
+        function isSuperAdmin(user) {
+            return user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+                || user?.app_metadata?.role === 'admin';
+        }
+
+        async function handleLoginSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-username').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                showToast("Error de acceso", authErrorMessage(error), "error");
+                return;
+            }
+            await openAuthenticatedView(data.user);
+            showToast("Sesión iniciada", "Tu cuenta se conectó correctamente.", "success");
+        }
+
+        async function handleRegisterSubmit() {
+            const emailInput = document.getElementById('login-username');
+            const passwordInput = document.getElementById('login-password');
+            const email = emailInput.value.trim().toLowerCase();
+            const password = passwordInput.value;
+            if (email === SUPER_ADMIN_EMAIL) {
+                showToast("Correo reservado", "La cuenta de Super Admin debe crearse y asignarse desde Supabase.", "error");
+                return;
+            }
+            if (!emailInput.checkValidity()) {
+                showToast("Correo no válido", "Escribe una dirección de correo válida.", "error");
+                return;
+            }
+            if (password.length < 6) {
+                showToast("Contraseña no válida", "La contraseña debe tener al menos 6 caracteres.", "error");
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) {
+                showToast("No se pudo crear la cuenta", authErrorMessage(error), "error");
+                return;
+            }
+            if (data.session) {
+                await openAuthenticatedView(data.user);
+                showToast("Cuenta creada", "Ya puedes registrar tus mascotas y dispositivos.", "success");
+            } else {
+                showToast("Confirma tu correo", "Te enviamos un enlace de confirmación. Después podrás iniciar sesión.", "success");
+            }
+        }
+
+        async function resetPassword(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-username').value.trim().toLowerCase();
+            if (!email) {
+                showToast("Correo requerido", "Escribe tu correo para enviarte el enlace de recuperación.", "error");
+                return;
+            }
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+            if (error) showToast("No se pudo enviar el enlace", authErrorMessage(error), "error");
+            else showToast("Revisa tu correo", "Si existe una cuenta, recibirás un enlace para restablecer la contraseña.", "success");
+        }
+
+        async function openAuthenticatedView(user) {
+            currentUser = user;
+            hideLogin();
+            document.getElementById('view-landing').classList.add('hidden');
+            const isAdmin = isSuperAdmin(user);
+            document.getElementById('view-admin').classList.toggle('hidden', !isAdmin);
+            document.getElementById('view-user-app').classList.toggle('hidden', isAdmin);
+
+            if (isAdmin) {
+                await loadAdminMascotas();
+                return;
+            }
+            await loadMascotas();
+            await loadUserProfile();
+            await loadCommunityPosts();
+            await updateMyProfileGrid();
+            setTimeout(() => {
+                if (!map) initLeafletMap();
+                else {
+                    map.invalidateSize();
+                    recenterMap();
+                }
+            }, 400);
+            clearInterval(gpsSimulationInterval);
+            gpsSimulationInterval = setInterval(simulateGPSTick, 6000);
+        }
+
+        async function logoutAll() {
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) {
+                showToast("No se pudo cerrar sesión", authErrorMessage(error), "error");
+                return;
+            }
+            currentUser = null;
+            clearInterval(gpsSimulationInterval);
+            document.getElementById('view-user-app').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            document.getElementById('view-landing').classList.remove('hidden');
+            showToast("Sesión Cerrada", "Vuelve pronto.", "info");
+        }
+
+        function mascotaToRegisteredUser(row, index) {
+            return {
+                id: index,
+                petName: row.nombre_mascota || row.nombre,
+                breed: row.raza,
+                age: row.edad,
+                ownerName: row.cliente_email || row.user_id || currentUser?.user_metadata?.full_name || currentUser?.email || 'Responsable',
+                phone: row.telefono,
+                collarId: row.imei_gps || row.collar_id,
+                status: row.estado === 'inactivo' ? 'offline' : 'online',
+                battery: 100,
+                signal: '4G LTE',
+                lastSeen: 'Hace unos instantes',
+                address: 'Caracas Centro, Venezuela'
+            };
+        }
+
+        const defaultPetImage = 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=640';
+
+        function updatePetCarnet(row, imageUrl = defaultPetImage) {
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value || '-';
+            };
+            setText('carnet-pet-name', row?.nombre_mascota || 'Mi mascota');
+            setText('carnet-pet-breed', row?.raza || 'Registra tu dispositivo GPS');
+            setText('carnet-pet-age', row?.edad);
+            setText('carnet-pet-imei', row?.imei_gps);
+            setText('carnet-owner', currentUser?.user_metadata?.full_name || currentUser?.email || 'Responsable');
+            setText('carnet-phone', row?.telefono);
+            setText('map-pet-name', row?.nombre_mascota || 'Mi mascota');
+            setText('map-collar-name', row?.nombre_mascota || 'Mi mascota');
+            const image = document.getElementById('carnet-pet-image');
+            if (image) image.src = imageUrl || defaultPetImage;
+        }
+
+        async function loadMascotas() {
+            if (!currentUser) return;
+            registeredUsers = [];
+            refreshAdminViews();
+            updatePetCarnet(null);
+            const { data, error } = await supabaseClient
+                .from('mascotas')
+                .select('nombre_mascota,imei_gps,raza,edad,telefono,user_id')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                showToast("No se pudieron cargar tus mascotas", authErrorMessage(error), "error");
+                return;
+            }
+            registeredUsers = data.map(mascotaToRegisteredUser);
+            updatePetCarnet(data[0] || null);
+            refreshAdminViews();
+        }
+
+        async function loadAdminMascotas() {
+            if (!isSuperAdmin(currentUser)) return;
+            registeredUsers = [];
+            refreshAdminViews();
+            const { data, error } = await supabaseClient
+                .from('mascotas')
+                .select('user_id,nombre_mascota,imei_gps,raza,edad,telefono')
+                .order('created_at', { ascending: false });
+            if (error) {
+                showToast("No se pudieron cargar los clientes", authErrorMessage(error), "error");
+                return;
+            }
+            registeredUsers = (data || []).map(mascotaToRegisteredUser);
+            refreshAdminViews();
+        }
+
+        // ==============================================
+        // MAPA MÓVIL CON RASTREO MULTIPUNTO (DISPOSITIVO Y MASCOTA)
+        // ==============================================
+        function initLeafletMap() {
+            const defaultPos = [10.4806, -66.9036];
+            
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: true
+            }).setView(defaultPos, 16);
+
+            L.tileLayer(mapLayers.streets, {
+                maxZoom: 19,
+                referrerPolicy: 'no-referrer',
+                attribution: mapLayers.streetsAttribution
+            }).addTo(map);
+
+            // 1. Marcador del Perro (Luffy)
+            const dogMarkerHtml = `
+                <div class="dog-marker-container" id="dog-marker-visual">
+                    <div class="dog-marker-pulse"></div>
+                    <div class="dog-marker-avatar" style="background-image: url('https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=150');"></div>
+                </div>
+            `;
+            const customIcon = L.divIcon({
+                html: dogMarkerHtml,
+                className: 'custom-leaflet-marker',
+                iconSize: [48, 48],
+                iconAnchor: [24, 24]
+            });
+            mainMarker = L.marker(defaultPos, { icon: customIcon }).addTo(map);
+
+            // 2. Marcador del Dispositivo / Teléfono Móvil del Dueño (GPS actual de la persona)
+            const deviceIconHtml = `
+                <div class="relative w-8 h-8 flex items-center justify-center">
+                    <div class="absolute w-6 h-6 bg-blue-500/30 rounded-full animate-ping"></div>
+                    <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-md"></div>
+                </div>
+            `;
+            const deviceIcon = L.divIcon({
+                html: deviceIconHtml,
+                className: 'device-leaflet-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+            deviceMarker = L.marker(deviceCoords, { icon: deviceIcon }).addTo(map);
+            deviceMarker.bindPopup('<strong class="text-xs text-blue-600">Mi Dispositivo (Teléfono)</strong>');
+            
+            livePathLine = L.polyline([defaultPos], {
+                color: '#2563eb',
+                weight: 4,
+                opacity: 0.6,
+                dashArray: '5, 8'
+            }).addTo(map);
+
+            addInitialHelpMarkers();
+
+            // COMPROBAR AL CARGAR SI OTRAS PESTAÑAS YA ESTÁN EN SOS
+            const activeSOSStore = localStorage.getItem('ubipet_sos_state');
+            if (activeSOSStore) {
+                const sosData = JSON.parse(activeSOSStore);
+                if (sosData && sosData.active) {
+                    applyExternalSOSState(sosData);
+                }
+            }
+        }
+
+        // SIMULACIÓN DE TICK GPS (DIFERENTE DURANTE SOS)
+        function simulateGPSTick() {
+            if (!map) return;
+            
+            routeIndex = (routeIndex + 1) % simulateRoute.length;
+            const currentData = simulateRoute[routeIndex];
+            const newPos = [currentData.lat, currentData.lng];
+
+            if (mainMarker) mainMarker.setLatLng(newPos);
+            if (livePathLine) livePathLine.addLatLng(newPos);
+            if (searchRadarCircle) searchRadarCircle.setLatLng(newPos);
+
+            const addr = document.getElementById('gps-address');
+            const dist = document.getElementById('gps-distance');
+            const bat = document.getElementById('battery-status');
+            
+            if (addr) addr.innerText = currentData.address;
+            if (dist) dist.innerText = currentData.distance;
+            if (bat) bat.querySelector('span').innerText = currentData.battery;
+
+            // EMITIR EN TIEMPO REAL EL AVANCE DEL GPS A TRAVÉS DE LA RED LOCAL SI ESTAMOS EN SOS
+            if (isSOSMode) {
+                localStorage.setItem('ubipet_luffy_gps_coords', JSON.stringify({ lat: currentData.lat, lng: currentData.lng }));
+            }
+        }
+
+        function recenterMap() {
+            if (mainMarker && map) {
+                map.panTo(mainMarker.getLatLng(), { animate: true, duration: 1.0 });
+            }
+        }
+
+        function toggleMapSat() {
+            if (!map) return;
+            if (currentMapStyle === 'streets') {
+                currentMapStyle = 'satellite';
+                map.eachLayer(layer => {
+                    if (layer instanceof L.TileLayer) map.removeLayer(layer);
+                });
+                L.tileLayer(mapLayers.satellite, {
+                    maxZoom: 18,
+                    referrerPolicy: 'no-referrer',
+                    attribution: mapLayers.satelliteAttribution
+                }).addTo(map);
+            } else {
+                currentMapStyle = 'streets';
+                map.eachLayer(layer => {
+                    if (layer instanceof L.TileLayer) map.removeLayer(layer);
+                });
+                L.tileLayer(mapLayers.streets, {
+                    maxZoom: 19,
+                    referrerPolicy: 'no-referrer',
+                    attribution: mapLayers.streetsAttribution
+                }).addTo(map);
+            }
+        }
+
+        // ==============================================
+        // FLUX DE VERIFICACIÓN SOCIAL OBLIGATORIA
+        // ==============================================
+        function handleVerificationPhoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    verificationPhotoBase64 = e.target.result;
+                    document.getElementById('verify-photo-preview').src = verificationPhotoBase64;
+                    document.getElementById('verify-photo-preview-container').classList.remove('hidden');
+                    document.getElementById('upload-status-text').innerText = "Imagen cargada con éxito";
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function renderVerificationCard(profile) {
+            const card = document.getElementById('verification-card');
+            if (!card) return;
+            if (!profile?.is_verified || !profile?.age_confirmed || !profile?.verification_photo_url) {
+                card.innerHTML = `
+                    <h4 class="font-extrabold text-blue-950 text-xs flex items-center gap-2"><i class="fa-solid fa-shield-cat text-blue-600"></i> Verificación Social del Club</h4>
+                    <p class="text-[10px] text-gray-500 leading-relaxed">Completa la verificación para publicar en el Club de las Huellas.</p>
+                    <div class="space-y-2 text-xs text-gray-800">
+                        <div><label class="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Enlace de tu Instagram</label><input id="verify-instagram" type="url" placeholder="https://instagram.com/tu_mascota" class="w-full bg-white border border-blue-200 rounded-xl p-2.5 text-xs text-gray-800 outline-none focus:ring-1 focus:ring-ubipet-500"></div>
+                        <div>
+                            <label class="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Foto de verificación</label>
+                            <input id="verify-photo-input" type="file" accept="image/*" class="hidden" onchange="handleVerificationPhoto(event)">
+                            <button type="button" onclick="document.getElementById('verify-photo-input').click()" class="w-full bg-white border border-dashed border-blue-300 hover:border-blue-500 rounded-xl p-2.5 text-xs text-blue-600 flex items-center justify-center gap-2 font-semibold"><i class="fa-solid fa-cloud-arrow-up"></i><span id="upload-status-text">Seleccionar Imagen</span></button>
+                            <div id="verify-photo-preview-container" class="hidden mt-2 flex justify-center"><img id="verify-photo-preview" src="" alt="Vista previa de verificación" class="w-20 h-20 object-cover rounded-xl border border-blue-200"></div>
+                        </div>
+                        <div class="flex items-start gap-2 pt-1"><input id="verify-age-checkbox" type="checkbox" class="mt-0.5 rounded text-ubipet-500 focus:ring-ubipet-500"><label for="verify-age-checkbox" class="text-[9px] text-gray-500 leading-tight">Confirmo tener 18 años o más.</label></div>
+                        <button type="button" onclick="submitVerification()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5"><i class="fa-solid fa-user-check"></i> Activar verificación</button>
+                    </div>`;
+                return;
+            }
+            const instagram = escapeHTML(profile.instagram_url || '');
+            card.innerHTML = `
+                <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 text-emerald-800 text-xs space-y-2">
+                    <div class="flex items-center gap-2 font-extrabold text-sm text-emerald-900"><i class="fa-solid fa-circle-check text-emerald-600"></i> Perfil Verificado</div>
+                    <p class="text-[11px] text-emerald-700">La verificación está guardada en tu cuenta.</p>
+                    <img src="${escapeHTML(profile.verification_photo_url)}" alt="Foto de verificación" class="w-20 h-20 object-cover rounded-xl border border-emerald-200">
+                    <div class="text-[10px] font-semibold text-emerald-800">Instagram: <span class="underline">${instagram}</span></div>
+                </div>`;
+        }
+
+        async function loadUserProfile() {
+            if (!currentUser) return;
+            const { data, error } = await supabaseClient
+                .from('perfiles')
+                .select('user_id,instagram_url,is_verified,age_confirmed,verification_photo_url,pet_name,updated_at')
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+            if (error) {
+                console.warn('[UbiPet] No se pudo cargar el perfil verificado:', error);
+                userProfile = null;
+                isUserVerified = false;
+                verificationPhotoUrl = '';
+                verificationPhotoBase64 = '';
+                renderVerificationCard(null);
+                return;
+            }
+            userProfile = data;
+            isUserVerified = Boolean(data?.is_verified && data?.age_confirmed && data?.verification_photo_url);
+            verificationPhotoUrl = data?.verification_photo_url || '';
+            verificationPhotoBase64 = '';
+            renderVerificationCard(data);
+            const instagramInput = document.getElementById('verify-instagram');
+            if (instagramInput) instagramInput.value = data?.instagram_url || '';
+            const ageCheckbox = document.getElementById('verify-age-checkbox');
+            if (ageCheckbox) ageCheckbox.checked = Boolean(data?.age_confirmed);
+            if (verificationPhotoUrl) {
+                const preview = document.getElementById('verify-photo-preview');
+                if (preview) preview.src = verificationPhotoUrl;
+                document.getElementById('verify-photo-preview-container')?.classList.remove('hidden');
+                const status = document.getElementById('upload-status-text');
+                if (status) status.textContent = 'Foto de verificación guardada';
+            } else {
+                document.getElementById('verify-photo-preview-container')?.classList.add('hidden');
+            }
+        }
+
+        async function submitVerification() {
+            const instagram = document.getElementById('verify-instagram').value.trim();
+            const ageChecked = document.getElementById('verify-age-checkbox').checked;
+            if (!instagram) {
+                showToast("Acción Requerida", "Por favor ingresa tu enlace de Instagram para validar tu carnet.", "error");
+                return;
+            }
+            const file = document.getElementById('verify-photo-input').files[0];
+            if (!file && !verificationPhotoUrl) {
+                showToast("Acción Requerida", "Debes subir una foto graciosa de tu mascota para verificar la cuenta.", "error");
+                return;
+            }
+            if (!ageChecked) {
+                showToast("Acción Requerida", "Debes certificar que eres mayor de 18 años para habilitar el Club.", "error");
+                return;
+            }
+            if (!currentUser) {
+                showToast("Inicia sesión", "La verificación requiere una sesión activa.", "error");
+                return;
+            }
+
+            let uploadedPath = null;
+            let profileSaved = false;
+            try {
+                const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+                if (authError) throw authError;
+                const user = authData?.user;
+                if (!user?.id) throw new Error('La sesión expiró. Inicia sesión de nuevo para guardar el perfil.');
+
+                let photoUrl = verificationPhotoUrl;
+                if (file) {
+                    if (!file.type.startsWith('image/')) throw new Error('Selecciona un archivo de imagen válido.');
+                    if (file.size > 10 * 1024 * 1024) throw new Error('La foto no puede superar los 10 MB.');
+                    const extension = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+                    uploadedPath = `${user.id}/verification/${Date.now()}.${extension}`;
+                    const { error: uploadError } = await supabaseClient.storage
+                        .from('mascotas-media')
+                        .upload(uploadedPath, file, { upsert: false, contentType: file.type });
+                    if (uploadError) throw uploadError;
+                    photoUrl = supabaseClient.storage.from('mascotas-media').getPublicUrl(uploadedPath).data.publicUrl;
+                }
+
+                const profilePayload = {
+                    id: user.id,
+                    user_id: user.id,
+                    pet_name: registeredUsers[0]?.petName || user.user_metadata?.pet_name || 'Mi mascota',
+                    instagram_url: instagram,
+                    is_verified: true,
+                    age_confirmed: true,
+                    verification_photo_url: photoUrl,
+                    updated_at: new Date().toISOString()
+                };
+                const { data, error } = await supabaseClient
+                    .from('perfiles')
+                    .upsert(profilePayload, { onConflict: 'user_id' })
+                    .select('id,user_id,instagram_url,is_verified,age_confirmed,verification_photo_url,pet_name,updated_at')
+                    .single();
+                if (error) throw error;
+
+                profileSaved = true;
+                userProfile = data;
+                verificationPhotoUrl = data.verification_photo_url;
+                isUserVerified = true;
+                renderVerificationCard(data);
+                const petName = data.pet_name || 'mi mascota';
+                const { data: existingWelcome, error: welcomeLookupError } = await supabaseClient
+                    .from('publicaciones')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('is_welcome_post', true)
+                    .limit(1)
+                    .maybeSingle();
+                if (welcomeLookupError) throw welcomeLookupError;
+
+                if (!existingWelcome) {
+                    const welcomePayload = {
+                        user_id: user.id,
+                        author_name: user.user_metadata?.full_name || petName,
+                        pet_name: petName,
+                        caption: `¡Hola a toda la comunidad! Soy ${petName} y acabo de verificar mi perfil en el Club de las Huellas. ¡Salúdame! 🐾✨`,
+                        type: 'image',
+                        media_url: data.verification_photo_url,
+                        location: 'Caracas',
+                        is_welcome_post: true
+                    };
+                    const { error: welcomeInsertError } = await supabaseClient
+                        .from('publicaciones')
+                        .insert([welcomePayload]);
+                    if (welcomeInsertError) throw welcomeInsertError;
+                }
+
+                await updateMyProfileGrid();
+                await loadCommunityPosts();
+                switchTab('community');
+                switchClubSubTab('all');
+                showToast("¡Perfil Verificado con Éxito!", "Tu publicación de bienvenida ya está en el Club de las Huellas.", "success");
+            } catch (error) {
+                console.error('[UbiPet] No se pudo guardar la verificación:', error);
+                if (uploadedPath && !profileSaved) {
+                    try {
+                        const { error: cleanupError } = await supabaseClient.storage.from('mascotas-media').remove([uploadedPath]);
+                        if (cleanupError) console.warn('[UbiPet] No se pudo eliminar la foto de verificación incompleta:', cleanupError);
+                    } catch (cleanupError) {
+                        console.warn('[UbiPet] Excepción al limpiar la foto de verificación:', cleanupError);
+                    }
+                }
+                showToast(
+                    profileSaved ? "Perfil verificado; bienvenida pendiente" : "No se pudo guardar la verificación",
+                    error?.message || authErrorMessage(error),
+                    profileSaved ? "info" : "error"
+                );
+            }
+        }
+
+        // CONTROL PESTAÑAS CLUB FEED VS MI PERFIL
+        function switchClubSubTab(subtab) {
+            const btnAll = document.getElementById('btn-club-all');
+            const btnMy = document.getElementById('btn-club-my');
+            const feedContainer = document.getElementById('community-feed');
+            const gridContainer = document.getElementById('club-my-profile-grid');
+
+            const activeStyle = "flex-1 bg-blue-600 text-white text-xs font-bold py-1.5 rounded-xl transition-all shadow-sm";
+            const inactiveStyle = "flex-1 bg-white text-gray-500 text-xs font-semibold py-1.5 rounded-xl transition-all border border-gray-100";
+
+            if (subtab === 'all') {
+                btnAll.className = activeStyle;
+                btnMy.className = inactiveStyle;
+                feedContainer.classList.remove('hidden');
+                gridContainer.classList.add('hidden');
+                feedContainer.classList.remove('tab-view-enter');
+                void feedContainer.offsetWidth;
+                feedContainer.classList.add('tab-view-enter');
+            } else {
+                btnAll.className = inactiveStyle;
+                btnMy.className = activeStyle;
+                feedContainer.classList.add('hidden');
+                gridContainer.classList.remove('hidden');
+                gridContainer.classList.remove('tab-view-enter');
+                void gridContainer.offsetWidth;
+                gridContainer.classList.add('tab-view-enter');
+                updateMyProfileGrid();
+            }
+        }
+
+        async function updateMyProfileGrid() {
+            const gridContainer = document.getElementById('grid-user-photos');
+            const counter = document.getElementById('posts-counter');
+            const profileName = currentUser?.user_metadata?.full_name || currentUser?.email || 'Mi Perfil';
+            document.getElementById('club-profile-name').textContent = profileName;
+            const profileImage = document.getElementById('club-profile-image');
+            if (profileImage) profileImage.src = userProfile?.verification_photo_url || defaultPetImage;
+            const verificationBadge = document.getElementById('club-profile-verified-badge');
+            if (verificationBadge) {
+                verificationBadge.classList.toggle('hidden', !userProfile?.is_verified);
+                verificationBadge.classList.toggle('flex', Boolean(userProfile?.is_verified));
+            }
+            gridContainer.replaceChildren();
+            counter.textContent = '0 Publicaciones';
+            if (!currentUser) {
+                counter.textContent = '0 Publicaciones';
+                gridContainer.innerHTML = '<div class="col-span-3 text-center py-12 text-gray-400 text-xs">Inicia sesión para ver tu perfil.</div>';
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('publicaciones')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false });
+            if (error) {
+                console.error('[UbiPet] No se pudieron cargar las publicaciones del perfil:', error);
+                gridContainer.innerHTML = '<div class="col-span-3 text-center py-12 text-gray-400 text-xs">No se pudieron cargar tus publicaciones.</div>';
+                return;
+            }
+
+            myProfilePosts = (data || []).map(normalizePublication);
+            counter.textContent = `${myProfilePosts.length} Publicaciones`;
+            if (!myProfilePosts.length) {
+                gridContainer.innerHTML = '<div class="col-span-3 text-center py-12 text-gray-400 text-xs"><i class="fa-solid fa-images text-2xl mb-2 block"></i>Aún no has publicado en el Club.</div>';
+                return;
+            }
+
+            myProfilePosts.forEach(post => {
+                const cell = document.createElement('div');
+                if (post.is_welcome_post) {
+                    cell.className = 'col-span-3 bg-white rounded-xl overflow-hidden border border-emerald-100 shadow-sm';
+                    const image = document.createElement('img');
+                    image.src = post.media_url || userProfile?.verification_photo_url || defaultPetImage;
+                    image.alt = `Foto de bienvenida de ${post.pet_name || post.author_name}`;
+                    image.className = 'w-full max-h-72 object-cover';
+                    const details = document.createElement('div');
+                    details.className = 'p-3';
+                    const badge = document.createElement('span');
+                    badge.className = 'inline-flex items-center gap-1 text-[9px] font-extrabold uppercase text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full';
+                    badge.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Bienvenida verificada';
+                    const description = document.createElement('p');
+                    description.className = 'text-xs text-gray-700 leading-relaxed mt-2';
+                    description.textContent = post.caption;
+                    details.append(badge, description);
+                    cell.append(image, details);
+                    gridContainer.appendChild(cell);
+                    return;
+                }
+
+                cell.className = 'relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-100 shadow-xs';
+                if (post.type === 'video') {
+                    const video = document.createElement('video');
+                    video.src = post.media_url;
+                    video.muted = true;
+                    video.loop = true;
+                    video.playsInline = true;
+                    video.preload = 'metadata';
+                    video.className = 'w-full h-full object-cover';
+                    cell.appendChild(video);
+                    const reelBadge = document.createElement('span');
+                    reelBadge.className = 'absolute top-1 right-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded';
+                    reelBadge.textContent = 'REEL';
+                    cell.appendChild(reelBadge);
+                } else {
+                    const image = document.createElement('img');
+                    image.src = post.media_url;
+                    image.alt = `Publicación de ${post.author_name}`;
+                    image.className = 'w-full h-full object-cover';
+                    cell.appendChild(image);
+                }
+                gridContainer.appendChild(cell);
+            });
+        }
+
+        // ABRIR PESTAÑAS GENERALES
+        function switchTab(targetTab) {
+            activeTab = targetTab;
+            const tabs = ['map', 'community', 'sos', 'help', 'profile'];
+            tabs.forEach(tab => {
+                const button = document.getElementById(`nav-${tab}`);
+                const dot = document.getElementById(`dot-${tab}`);
+                if (tab === targetTab) {
+                    button.classList.add('text-ubipet-500');
+                    button.classList.remove('text-gray-400');
+                    if (dot) dot.classList.remove('hidden');
+                } else {
+                    button.classList.add('text-gray-400');
+                    button.classList.remove('text-ubipet-500');
+                    if (dot) dot.classList.add('hidden');
+                }
+            });
+
+            tabs.forEach(tab => {
+                const view = document.getElementById(`tab-${tab}`);
+                view.classList.add('hidden');
+                view.classList.remove('tab-view-enter');
+            });
+            const activeView = document.getElementById(`tab-${targetTab}`);
+            activeView.classList.remove('hidden');
+            void activeView.offsetWidth;
+            activeView.classList.add('tab-view-enter');
+
+            if (targetTab === 'community' && currentUser) loadCommunityPosts();
+
+            if (targetTab === 'map') {
+                if (map) {
+                    setTimeout(() => {
+                        if (!map) return;
+                        map.invalidateSize();
+                        recenterMap();
+                    }, 200);
+                }
+            }
+        }
+
+        // ==============================================
+        // SISTEMA EMERGENCIA SOS (TIEMPO REAL ESTRICTO Y MULTI-TAB)
+        // ==============================================
+        function triggerSOSConfirmation() {
+            if (isSOSMode) {
+                deactivateSOS();
+            } else {
+                document.getElementById('modal-sos-confirm').classList.remove('hidden');
+            }
+        }
+
+        function activateSOS() {
+            closeModal('modal-sos-confirm');
+            isSOSMode = true;
+            
+            const markerVisual = document.getElementById('dog-marker-visual');
+            if (markerVisual) markerVisual.classList.add('dog-marker-sos');
+
+            const mainSosBtn = document.getElementById('main-sos-btn');
+            mainSosBtn.classList.remove('from-red-500', 'to-red-600');
+            mainSosBtn.classList.add('from-gray-800', 'to-gray-950');
+            mainSosBtn.innerHTML = `
+                <i class="fa-solid fa-ban text-3xl mb-2 text-white"></i>
+                <span class="font-extrabold text-xs tracking-wide">CANCELAR</span>
+            `;
+
+            const currentData = simulateRoute[routeIndex];
+
+            // 1. EMITIR EL ESTADO DEL SOS A TRAVÉS DE LOCALSTORAGE A TODAS LAS INSTANCIAS ABIERTAS
+            const sosBroadcastData = {
+                active: true,
+                petName: "Luffy",
+                lat: currentData.lat,
+                lng: currentData.lng,
+                deviceLocationName: "Urb. Chacao, Caracas"
+            };
+            localStorage.setItem('ubipet_sos_state', JSON.stringify(sosBroadcastData));
+
+            // Actualizar interfaz del emisor
+            document.getElementById('sos-alert-text').innerText = `¡ALERTA SOS! Luffy se ha perdido por la zona de Chacao, Caracas.`;
+            document.getElementById('sos-global-banner').classList.remove('hidden');
+            document.getElementById('modal-sos-success').classList.remove('hidden');
+
+            showToast("¡ALERTA SOS ENVIADA!", `Luffy se ha extraviado por la zona de ${currentData.address}. Alerta de búsqueda emitida a un radio de 10km de forma masiva.`, "error");
+
+            // Aceleración de GPS a TIEMPO REAL ESTRICTO (Cada 1.5 segundos en el mapa)
+            clearInterval(gpsSimulationInterval);
+            gpsSimulationInterval = setInterval(simulateGPSTick, 1500);
+
+            if (map && mainMarker) {
+                if (searchRadarCircle) map.removeLayer(searchRadarCircle);
+                searchRadarCircle = L.circle(mainMarker.getLatLng(), {
+                    color: 'red',
+                    fillColor: '#f03',
+                    fillOpacity: 0.15,
+                    radius: 350
+                }).addTo(map);
+                map.setView(mainMarker.getLatLng(), 16);
+            }
+            switchTab('map');
+        }
+
+        function deactivateSOS() {
+            isSOSMode = false;
+            const markerVisual = document.getElementById('dog-marker-visual');
+            if (markerVisual) markerVisual.classList.remove('dog-marker-sos');
+
+            const mainSosBtn = document.getElementById('main-sos-btn');
+            mainSosBtn.className = "relative z-20 w-44 h-44 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex flex-col items-center justify-center text-white border-8 border-white";
+            mainSosBtn.innerHTML = `
+                <i class="fa-solid fa-triangle-exclamation text-4xl mb-2"></i>
+                <span class="font-extrabold text-base tracking-wide uppercase">ACTIVAR SOS</span>
+            `;
+
+            // LIMPIAR BROADCAST LOCAL DE EMERGENCIA
+            localStorage.setItem('ubipet_sos_state', JSON.stringify({ active: false }));
+            localStorage.removeItem('ubipet_luffy_gps_coords');
+
+            document.getElementById('sos-global-banner').classList.add('hidden');
+            
+            // Retornar a actualización estándar de GPS (6 segundos)
+            clearInterval(gpsSimulationInterval);
+            gpsSimulationInterval = setInterval(simulateGPSTick, 6000);
+
+            if (map && searchRadarCircle) {
+                map.removeLayer(searchRadarCircle);
+                searchRadarCircle = null;
+            }
+            switchTab('sos');
+        }
+
+        // LÓGICA DE ESCUCHA MULTI-DISPOSITIVO (REACTIVA EN TIEMPO REAL)
+        function handleCrossDeviceSync(e) {
+            // Sincronizar estado global del SOS
+            if (e.key === 'ubipet_sos_state') {
+                const sosData = JSON.parse(e.newValue);
+                if (sosData && sosData.active) {
+                    applyExternalSOSState(sosData);
+                } else {
+                    applyExternalSOSCancel();
+                }
+            }
+
+            // Sincronizar coordenadas en vivo de la mascota durante la emergencia
+            if (e.key === 'ubipet_luffy_gps_coords' && isSOSMode) {
+                const coords = JSON.parse(e.newValue);
+                if (coords && coords.lat && coords.lng) {
+                    const newPos = [coords.lat, coords.lng];
+                    if (mainMarker) mainMarker.setLatLng(newPos);
+                    if (livePathLine) livePathLine.addLatLng(newPos);
+                    if (searchRadarCircle) searchRadarCircle.setLatLng(newPos);
+                }
+            }
+        }
+
+        // Aplicar estado SOS cuando otra pestaña lo dispara
+        function applyExternalSOSState(sosData) {
+            isSOSMode = true;
+            
+            // Desplegar notificación push simulada
+            showToast("⚠️ ALERTA SOS COMUNITARIA", `¡Atención! La mascota "${sosData.petName}" se ha extraviado cerca de ${sosData.deviceLocationName}. Se ha dibujado un perímetro de seguridad de 10km en tu mapa.`, "error");
+
+            const markerVisual = document.getElementById('dog-marker-visual');
+            if (markerVisual) markerVisual.classList.add('dog-marker-sos');
+
+            document.getElementById('sos-alert-text').innerText = `¡ALERTA SOS! ${sosData.petName} se ha perdido por la zona de Chacao, Caracas.`;
+            document.getElementById('sos-global-banner').classList.remove('hidden');
+
+            const newPos = [sosData.lat, sosData.lng];
+
+            if (map) {
+                if (mainMarker) mainMarker.setLatLng(newPos);
+                if (searchRadarCircle) map.removeLayer(searchRadarCircle);
+                
+                searchRadarCircle = L.circle(newPos, {
+                    color: 'red',
+                    fillColor: '#f03',
+                    fillOpacity: 0.15,
+                    radius: 350
+                }).addTo(map);
+
+                map.setView(newPos, 16);
+            }
+        }
+
+        // Cancelar SOS cuando otra pestaña lo detiene
+        function applyExternalSOSCancel() {
+            isSOSMode = false;
+            
+            showToast("SOS Resuelto", "La emergencia comunitaria ha sido cancelada o resuelta.", "success");
+
+            const markerVisual = document.getElementById('dog-marker-visual');
+            if (markerVisual) markerVisual.classList.remove('dog-marker-sos');
+
+            document.getElementById('sos-global-banner').classList.add('hidden');
+
+            if (map && searchRadarCircle) {
+                map.removeLayer(searchRadarCircle);
+                searchRadarCircle = null;
+            }
+        }
+
+        // CONTROLADOR DE CREACIÓN DE PUBLICACIONES (CON VERIFICACIÓN)
+        function showVerificationPrompt(message) {
+            isUserVerified = false;
+            renderVerificationCard(userProfile?.is_verified ? null : userProfile);
+            switchTab('profile');
+            showToast("Verificación requerida", message, "error");
+            setTimeout(() => {
+                const card = document.getElementById('verification-card');
+                card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.getElementById('verify-instagram')?.focus({ preventScroll: true });
+            }, 150);
+        }
+
+        async function createNewPostModal() {
+            try {
+                const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+                if (authError || !authData?.user?.id) {
+                    showToast("Inicia sesión", authError?.message || "Se requiere una sesión activa para publicar.", "error");
+                    return;
+                }
+
+                currentUser = authData.user;
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('perfiles')
+                    .select('user_id,instagram_url,is_verified,age_confirmed,verification_photo_url,updated_at')
+                    .eq('user_id', authData.user.id)
+                    .maybeSingle();
+                if (profileError) {
+                    console.error('[UbiPet] No se pudo comprobar la verificación antes de publicar:', profileError);
+                    userProfile = null;
+                    showVerificationPrompt('No pudimos confirmar tu verificación. Completa o revisa tu perfil antes de publicar.');
+                    return;
+                }
+
+                userProfile = profile;
+                isUserVerified = Boolean(profile?.is_verified);
+                if (!isUserVerified) {
+                    renderVerificationCard(profile);
+                    showVerificationPrompt('Completa la Verificación Social del Club para crear publicaciones.');
+                    return;
+                }
+                const modal = document.getElementById('modal-new-post');
+                modal.classList.remove('modal-exit');
+                modal.classList.remove('hidden');
+            } catch (error) {
+                console.error('[UbiPet] No se pudo verificar el perfil antes de abrir el creador:', error);
+                userProfile = null;
+                showVerificationPrompt('No pudimos confirmar tu verificación. Revisa tu conexión y completa tu perfil antes de publicar.');
+            }
+        }
+
+        function getVideoDuration(file) {
+            return new Promise((resolve, reject) => {
+                const video = document.createElement('video');
+                const objectUrl = URL.createObjectURL(file);
+                video.preload = 'metadata';
+                video.onloadedmetadata = () => {
+                    const duration = video.duration;
+                    URL.revokeObjectURL(objectUrl);
+                    if (!Number.isFinite(duration)) reject(new Error('No se pudo leer la duración del video.'));
+                    else resolve(duration);
+                };
+                video.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error('No se pudo abrir el archivo de video.'));
+                };
+                video.src = objectUrl;
+            });
+        }
+
+        async function handleVideoSelection(event) {
+            const input = event.target;
+            const file = input.files?.[0];
+            const status = document.getElementById('post-media-status');
+            if (!file) return;
+            if (!file.type.startsWith('video/')) {
+                if (status) status.textContent = 'Imagen seleccionada.';
+                return;
+            }
+
+            try {
+                const duration = await getVideoDuration(file);
+                if (duration > MAX_REEL_DURATION_SECONDS) {
+                    input.value = '';
+                    if (status) status.textContent = 'El video supera la duración permitida.';
+                    showToast("Reel demasiado largo", "El límite de los Reels es de 7 segundos (máximo técnico: 7.5 s).", "error");
+                    return;
+                }
+                if (status) status.textContent = `Video válido: ${duration.toFixed(1)} s.`;
+            } catch (error) {
+                input.value = '';
+                if (status) status.textContent = 'No se pudo validar el video.';
+                showToast("Video no válido", error.message, "error");
+            }
+        }
+
+        function toggleVideoAudio(button) {
+            const video = button.closest('[data-reel-container]')?.querySelector('video');
+            if (!video) return;
+            video.muted = !video.muted;
+            button.setAttribute('aria-label', video.muted ? 'Activar audio' : 'Silenciar video');
+            button.title = video.muted ? 'Activar audio' : 'Silenciar video';
+            button.innerHTML = video.muted
+                ? '<i class="fa-solid fa-volume-xmark"></i>'
+                : '<i class="fa-solid fa-volume-high"></i>';
+        }
+
+        function normalizePublication(row) {
+            return {
+                ...row,
+                caption: row.caption ?? row.descripcion ?? '',
+                type: row.type ?? row.tipo ?? 'image',
+                author_name: row.author_name ?? row.nombre_autor ?? 'Miembro UbiPet',
+                media_url: row.media_url || '',
+                created_at: row.created_at || row.fecha_creacion || null,
+                location: row.location || row.ubicacion || 'Caracas'
+            };
+        }
+
+        function formatPublicationDate(value) {
+            if (!value) return 'Fecha no disponible';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? 'Fecha no disponible' : date.toLocaleString('es-VE');
+        }
+
+        async function loadPostInteractions(posts) {
+            postLikeCounts = new Map();
+            userLikedPostIds = new Set();
+            postComments = new Map();
+            const postIds = posts.map(post => post.id).filter(Boolean);
+            if (!postIds.length) return;
+
+            const { data: likes, error: likesError } = await supabaseClient
+                .from('publication_likes')
+                .select('publication_id,user_id')
+                .in('publication_id', postIds);
+            if (likesError) console.warn('[UbiPet] No se pudieron cargar likes:', likesError);
+            else {
+                (likes || []).forEach(like => {
+                    const id = String(like.publication_id);
+                    postLikeCounts.set(id, (postLikeCounts.get(id) || 0) + 1);
+                    if (like.user_id === currentUser.id) userLikedPostIds.add(id);
+                });
+            }
+
+            const { data: comments, error: commentsError } = await supabaseClient
+                .from('publication_comments')
+                .select('id,publication_id,user_id,author_name,body,created_at')
+                .in('publication_id', postIds)
+                .order('created_at', { ascending: true });
+            if (commentsError) console.warn('[UbiPet] No se pudieron cargar comentarios:', commentsError);
+            else {
+                (comments || []).forEach(comment => {
+                    const id = String(comment.publication_id);
+                    const list = postComments.get(id) || [];
+                    list.push(comment);
+                    postComments.set(id, list);
+                });
+            }
+        }
+
+        function renderCommunityPost(post) {
+            const feed = document.getElementById('community-feed');
+            const caption = escapeHTML(post.caption);
+            const location = escapeHTML(post.location || 'Caracas');
+            const author = escapeHTML(post.author_name || 'Miembro UbiPet');
+            const mediaUrl = escapeHTML(post.media_url);
+            const postId = escapeHTML(post.id);
+            const normalizedId = String(post.id);
+            const isVideo = post.type === 'video';
+            const isLiked = userLikedPostIds.has(normalizedId);
+            const likeCount = postLikeCounts.get(normalizedId) || 0;
+            const comments = postComments.get(normalizedId) || [];
+            const commentsMarkup = comments.map(comment => `<div class="text-gray-600"><span class="font-bold text-gray-800">${escapeHTML(comment.author_name || 'Miembro UbiPet')}:</span> ${escapeHTML(comment.body)}</div>`).join('');
+            const createdAt = escapeHTML(formatPublicationDate(post.created_at));
+            const mediaMarkup = isVideo
+                ? `<div class="relative aspect-[9/16] max-h-[70vh] overflow-hidden bg-black" data-reel-container>
+                        <video class="reel-video w-full h-full object-cover" src="${mediaUrl}" autoplay muted loop playsinline preload="metadata"></video>
+                        <span class="absolute top-3 left-3 bg-black/70 text-white text-[10px] font-black px-2.5 py-1 rounded-full tracking-wider">REEL 7S</span>
+                        <button type="button" onclick="toggleVideoAudio(this)" aria-label="Activar audio" title="Activar audio" class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-black/65 text-white flex items-center justify-center"><i class="fa-solid fa-volume-xmark"></i></button>
+                    </div>`
+                : `<div class="relative aspect-video overflow-hidden bg-gray-100"><img src="${mediaUrl}" alt="Publicación de ${author}" class="w-full h-full object-cover"></div>`;
+
+            const postHtml = `
+                <div class="glass-panel rounded-2xl shadow-sm border border-gray-100 overflow-hidden post-card mb-4" data-post-source="supabase" data-post-id="${postId}">
+                    <div class="p-3 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=150" alt="Mascota" class="w-9 h-9 rounded-full object-cover border-2 border-blue-500">
+                            <div><h5 class="font-bold text-gray-800 text-xs">${author}</h5><p class="text-[10px] text-gray-400 flex items-center gap-0.5"><i class="fa-solid fa-location-dot"></i> ${location}</p></div>
+                        </div>
+                        <span class="text-right text-[10px] text-gray-400">${createdAt}<br>${isVideo ? 'REEL' : 'FOTO'}</span>
+                    </div>
+                    ${mediaMarkup}
+                    <div class="p-3">
+                        <div class="flex items-center space-x-4 mb-2">
+                            <button type="button" data-post-id="${postId}" data-liked="${isLiked}" onclick="toggleHuellita(this)" class="flex items-center space-x-1.5 ${isLiked ? 'text-red-500' : 'text-gray-500'} hover:text-red-500 transition-colors group"><i class="${isLiked ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-gray-600'} group-hover:scale-110 transition-transform text-lg"></i><span class="text-xs font-semibold text-gray-600 count">${likeCount}</span></button>
+                            <button type="button" onclick="focusCommentInput(this)" class="flex items-center space-x-1.5 text-gray-500 hover:text-ubipet-500 transition-colors"><i class="fa-regular fa-comment text-lg text-gray-600"></i><span class="text-xs font-semibold text-gray-600 comment-count">${comments.length}</span></button>
+                        </div>
+                        <p class="text-xs text-gray-700 leading-relaxed">${caption}</p>
+                        <div class="mt-3 pt-2.5 border-t border-gray-50 space-y-1.5 comments-list text-[11px]">${commentsMarkup}</div>
+                        <form data-post-id="${postId}" onsubmit="submitComment(event, this)" class="mt-3 flex gap-2"><input type="text" required maxlength="2000" placeholder="Escribe un comentario..." class="flex-1 bg-gray-50 border-0 rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-ubipet-500 text-gray-800 placeholder-gray-400"><button type="submit" class="bg-ubipet-50 text-ubipet-500 px-3 py-1.5 rounded-xl hover:bg-ubipet-100 text-xs font-semibold">Enviar</button></form>
+                    </div>
+                </div>`;
+            feed.insertAdjacentHTML('afterbegin', postHtml);
+        }
+
+        async function loadCommunityPosts() {
+            if (!currentUser) return;
+            const feed = document.getElementById('community-feed');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('publicaciones')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+                if (error) throw error;
+                currentFeedPosts = (data || []).map(normalizePublication);
+                await loadPostInteractions(currentFeedPosts);
+                feed.replaceChildren();
+                if (!currentFeedPosts.length) {
+                    feed.innerHTML = '<div class="py-12 text-center text-xs text-gray-400">Aún no hay publicaciones en el Club.</div>';
+                    return;
+                }
+                currentFeedPosts.slice().reverse().forEach(renderCommunityPost);
+            } catch (error) {
+                console.error('[UbiPet] No se pudo sincronizar el feed:', error);
+                feed.innerHTML = '<div class="py-12 text-center text-xs text-gray-500">No se pudieron cargar las publicaciones. Vuelve a intentarlo más tarde.</div>';
+            }
+        }
+
+        async function submitNewPost(event) {
+            event.preventDefault();
+            const caption = document.getElementById('post-caption').value.trim();
+            const location = document.getElementById('post-location').value.trim() || 'Caracas';
+            const fileInput = document.getElementById('post-media-file');
+            const file = fileInput.files?.[0];
+            const submitButton = document.getElementById('post-submit-button');
+            const submitLabel = document.getElementById('post-submit-label');
+            const uploadIndicator = document.getElementById('post-upload-indicator');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-busy', 'true');
+            }
+            submitLabel?.classList.add('hidden');
+            uploadIndicator?.classList.remove('hidden');
+            let storagePath = null;
+            let uploaded = false;
+            try {
+                if (!caption || !file) throw new Error('Escribe una descripción y selecciona una imagen o video.');
+                if (file.size > MAX_MEDIA_FILE_SIZE) throw new Error('El archivo supera el límite de 100 MB.');
+
+                const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+                if (authError) throw authError;
+                const user = authData?.user;
+                if (!user?.id) throw new Error('No hay una sesión autenticada válida. Inicia sesión antes de publicar.');
+
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('perfiles')
+                    .select('user_id,is_verified')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                if (profileError) throw profileError;
+                userProfile = profile;
+                isUserVerified = Boolean(profile?.is_verified);
+                if (!isUserVerified) {
+                    closeModal('modal-new-post');
+                    showVerificationPrompt('Completa la Verificación Social del Club para crear publicaciones.');
+                    return;
+                }
+
+                const type = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
+                if (!type) throw new Error('Selecciona una imagen o un video compatible.');
+                if (type === 'video') {
+                    const duration = await getVideoDuration(file);
+                    if (duration > MAX_REEL_DURATION_SECONDS) {
+                        fileInput.value = '';
+                        throw new Error('El límite de los Reels es de 7 segundos (máximo técnico: 7.5 s).');
+                    }
+                }
+
+                const extension = file.name.includes('.')
+                    ? file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
+                    : (type === 'video' ? 'mp4' : 'jpg');
+                storagePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+                console.log('[UbiPet] Datos enviados a Supabase Storage:', {
+                    bucket: 'mascotas-media',
+                    path: storagePath,
+                    file: { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified },
+                    user_id: user.id
+                });
+
+                const { error: uploadError } = await supabaseClient.storage
+                    .from('mascotas-media')
+                    .upload(storagePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+                if (uploadError) throw uploadError;
+                uploaded = true;
+
+                const { data: publicUrlData } = supabaseClient.storage
+                    .from('mascotas-media')
+                    .getPublicUrl(storagePath);
+                const postPayload = {
+                    user_id: user.id,
+                    author_name: user.user_metadata?.full_name || 'Miembro UbiPet',
+                    caption,
+                    type,
+                    media_url: publicUrlData.publicUrl,
+                    location
+                };
+                console.log('[UbiPet] Datos enviados a public.publicaciones:', postPayload);
+                const { error: postError } = await supabaseClient.from('publicaciones').insert([postPayload]);
+                if (postError) {
+                    throw postError;
+                }
+
+                await loadCommunityPosts();
+                closeModal('modal-new-post');
+                document.getElementById('post-caption').value = '';
+                fileInput.value = '';
+                document.getElementById('post-media-status').textContent = 'Elige una imagen o un video de hasta 7 segundos.';
+                updateMyProfileGrid();
+                showToast("Publicado", type === 'video' ? "Tu Reel se publicó en el Club." : "Tu foto se publicó en el Club.", "success");
+            } catch (error) {
+                console.error("Error detallado:", error?.message || error, {
+                    error,
+                    storagePath,
+                    file: file ? { name: file.name, type: file.type, size: file.size } : null
+                });
+                if (uploaded && storagePath) {
+                    try {
+                        const { error: cleanupError } = await supabaseClient.storage.from('mascotas-media').remove([storagePath]);
+                        if (cleanupError) console.warn('[UbiPet] No se pudo limpiar el archivo tras el fallo:', cleanupError);
+                    } catch (cleanupError) {
+                        console.warn('[UbiPet] Excepción limpiando el archivo subido:', cleanupError);
+                    }
+                }
+                showToast("No se pudo publicar", error?.message || authErrorMessage(error), "error");
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.setAttribute('aria-busy', 'false');
+                }
+                submitLabel?.classList.remove('hidden');
+                uploadIndicator?.classList.add('hidden');
+            }
+        }
+
+        // ==============================================
+        // LÓGICA DE SUPER ADMINISTRADOR (ADMIN SYSTEM)
+        // ==============================================
+        function switchAdminSubView(subview) {
+            activeAdminSubView = subview;
+            const btnDashboard = document.getElementById('btn-admin-dashboard');
+            const btnConnected = document.getElementById('btn-admin-connected');
+            
+            const inactiveClass = "w-full text-left text-slate-400 hover:bg-slate-800/50 hover:text-white py-3 px-4 rounded-xl flex items-center gap-3 transition-colors";
+            const activeClass = "w-full text-left bg-slate-800 text-white font-extrabold py-3 px-4 rounded-xl flex items-center gap-3 transition-colors";
+
+            if (subview === 'dashboard') {
+                btnDashboard.className = activeClass;
+                btnConnected.className = inactiveClass;
+                document.getElementById('admin-sub-dashboard').classList.remove('hidden');
+                document.getElementById('admin-sub-connected').classList.add('hidden');
+            } else {
+                btnDashboard.className = inactiveClass;
+                btnConnected.className = activeClass;
+                document.getElementById('admin-sub-dashboard').classList.add('hidden');
+                document.getElementById('admin-sub-connected').classList.remove('hidden');
+            }
+            refreshAdminViews();
+        }
+
+        function refreshAdminViews() {
+            document.getElementById('kpi-total').innerText = registeredUsers.length;
+            const onlineCount = registeredUsers.filter(u => u.status === 'online').length;
+            document.getElementById('kpi-active').innerText = onlineCount;
+            document.getElementById('kpi-sos').innerText = isSOSMode ? "1" : "0";
+
+            const tableBody = document.getElementById('admin-user-table');
+            tableBody.innerHTML = '';
+            
+            registeredUsers.forEach(user => {
+                const petName = escapeHTML(user.petName);
+                const breed = escapeHTML(user.breed);
+                const age = escapeHTML(user.age);
+                const ownerName = escapeHTML(user.ownerName);
+                const phone = escapeHTML(user.phone);
+                const collarId = escapeHTML(user.collarId);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-850/50 transition-colors border-b border-slate-800/30 text-xs";
+                tr.innerHTML = `
+                    <td class="py-3 pl-2 flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-slate-850 flex items-center justify-center font-black text-slate-300">
+                            ${petName[0] || '?'}
+                        </div>
+                        <div>
+                            <span class="font-extrabold text-white block">${petName}</span>
+                            <span class="text-[9px] text-slate-500">${breed} • ${age}</span>
+                        </div>
+                    </td>
+                    <td class="py-3 font-mono text-slate-400">${collarId}</td>
+                    <td class="py-3 font-semibold text-slate-300">${ownerName}</td>
+                    <td class="py-3 text-slate-400">${phone}</td>
+                    <td class="py-3 text-right pr-2">
+                        <button onclick="previewCarnetAdmin(${user.id})" class="bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white p-2 rounded-xl transition-all">
+                            <i class="fa-solid fa-address-card"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            const telemetryGrid = document.getElementById('telemetry-grid');
+            telemetryGrid.innerHTML = '';
+
+            registeredUsers.forEach(user => {
+                const isOnline = user.status === 'online';
+                const statusDot = isOnline ? 'bg-green-500' : 'bg-slate-600';
+                const signalClass = isOnline ? 'text-blue-400' : 'text-slate-600';
+                const petName = escapeHTML(user.petName);
+                const ownerName = escapeHTML(user.ownerName);
+                const collarId = escapeHTML(user.collarId);
+                const signal = escapeHTML(user.signal);
+                const lastSeen = escapeHTML(user.lastSeen);
+                const address = escapeHTML(user.address);
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 text-lg">
+                                <i class="fa-solid fa-microchip"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs text-white">${petName} <span class="text-[10px] text-slate-500 font-normal">(${ownerName})</span></h4>
+                                <span class="text-[9px] text-slate-400 font-mono">${collarId}</span>
+                            </div>
+                        </div>
+                        <span class="text-[10px] ${isOnline ? 'text-green-500 bg-green-500/10' : 'text-slate-400 bg-slate-800'} px-2.5 py-1 rounded-full flex items-center gap-1.5 font-bold">
+                            <span class="w-1.5 h-1.5 ${statusDot} rounded-full"></span> ${user.status.toUpperCase()}
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 bg-slate-950/40 p-3 rounded-xl text-center text-[10px]">
+                        <div>
+                            <span class="text-slate-500 block">Batería</span>
+                            <span class="font-bold text-white flex items-center justify-center gap-1 mt-0.5">
+                                <i class="fa-solid fa-battery-three-quarters ${user.battery < 20 ? 'text-red-500' : 'text-green-500'}"></i> ${user.battery}%
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">Red Celular</span>
+                            <span class="font-bold text-white flex items-center justify-center gap-1 mt-0.5">
+                                <i class="fa-solid fa-signal ${signalClass}"></i> ${signal}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">Último Reporte</span>
+                            <span class="font-bold text-slate-300 block mt-0.5">${lastSeen}</span>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-slate-400 flex items-center gap-1">
+                        <i class="fa-solid fa-map-location-dot text-blue-500 text-xs"></i> 
+                        <span>${address}</span>
+                    </div>
+                `;
+                telemetryGrid.appendChild(card);
+            });
+        }
+
+        async function handleNewUserRegister(event, form) {
+            event.preventDefault();
+            if (!isSuperAdmin(currentUser)) {
+                showToast("Acceso denegado", "Solo el Super Admin puede asignar dispositivos GPS.", "error");
+                return;
+            }
+            const fieldValue = name => form.elements.namedItem(name).value.trim();
+            const customerEmail = fieldValue('customerEmail').toLowerCase();
+            const customerPassword = form.elements.namedItem('customerPassword').value;
+            const petName = fieldValue('petName');
+            const breed = fieldValue('breed');
+            const age = fieldValue('age');
+            const phone = fieldValue('phone');
+            const collarId = fieldValue('collarId').toUpperCase();
+
+            if (customerEmail === SUPER_ADMIN_EMAIL) {
+                showToast("Correo reservado", "No puedes asignar dispositivos a la cuenta de Super Admin.", "error");
+                return;
+            }
+            if (customerPassword.length < 6) {
+                showToast("Contraseña no válida", "La contraseña inicial debe tener al menos 6 caracteres.", "error");
+                return;
+            }
+
+            const exists = registeredUsers.some(user => user.collarId.toUpperCase() === collarId);
+            if (exists) {
+                showToast("ID Duplicado", "Este ID de Collar ya está registrado.", "error");
+                return;
+            }
+
+            let mascotaPayload = null;
+            try {
+                const { data: accountData, error: accountError } = await accountCreationClient.auth.signUp({
+                    email: customerEmail,
+                    password: customerPassword
+                });
+                if (accountError) {
+                    console.error('[UbiPet] Error al crear la cuenta Auth:', {
+                        email: customerEmail,
+                        error: accountError
+                    });
+                    showToast("No se pudo crear la cuenta", authErrorMessage(accountError), "error");
+                    return;
+                }
+
+                const customerUser = accountData.user;
+                if (!customerUser?.id || customerUser.identities?.length === 0) {
+                    const accountError = new Error('La cuenta ya existe o Auth no devolvió un UUID utilizable.');
+                    console.error('[UbiPet] No se pudo resolver la cuenta cliente:', {
+                        email: customerEmail,
+                        user: customerUser,
+                        error: accountError
+                    });
+                    showToast("Correo ya registrado", "La cuenta ya existe o no se pudo confirmar su UUID.", "error");
+                    return;
+                }
+
+                mascotaPayload = {
+                    user_id: customerUser.id,
+                    nombre_mascota: petName,
+                    raza: breed,
+                    edad: age,
+                    telefono: phone,
+                    imei_gps: collarId
+                };
+                console.info('[UbiPet] Insertando fila en mascotas:', mascotaPayload);
+
+                const { error: insertError } = await supabaseClient
+                    .from('mascotas')
+                    .insert([mascotaPayload]);
+                if (insertError) {
+                    console.error('[UbiPet] Error devuelto por Supabase al insertar mascotas:', {
+                        payload: mascotaPayload,
+                        error: insertError
+                    });
+                    showToast("Cuenta creada, pero falló el registro de la mascota", authErrorMessage(insertError), "error");
+                    return;
+                }
+
+                await loadAdminMascotas();
+                showToast("Cliente y GPS registrados", `Se asignó ${collarId} a ${customerEmail}.`, "success");
+                form.reset();
+            } catch (registrationError) {
+                console.error('[UbiPet] Excepción durante el registro del cliente/mascota:', {
+                    email: customerEmail,
+                    payload: mascotaPayload,
+                    error: registrationError
+                });
+                showToast("Error inesperado al registrar", authErrorMessage(registrationError), "error");
+            }
+        }
+
+        function previewCarnetAdmin(id) {
+            const user = registeredUsers.find(u => u.id === id);
+            if (!user) return;
+
+            const petName = escapeHTML(user.petName);
+            const breed = escapeHTML(user.breed);
+            const age = escapeHTML(user.age);
+            const collarId = escapeHTML(user.collarId);
+            const ownerName = escapeHTML(user.ownerName);
+            const phone = escapeHTML(user.phone);
+            const carnetBox = document.getElementById('admin-carnet-card-content');
+            carnetBox.innerHTML = `
+                <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-white/10 rounded-full blur-2xl"></div>
+                <div class="flex justify-between items-start relative z-10">
+                    <div>
+                        <span class="bg-white/20 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-widest">CARNET DIGITAL</span>
+                        <h3 class="text-2xl font-black mt-2 tracking-tight">${petName.toUpperCase()}</h3>
+                        <p class="text-xs text-blue-100">${breed}</p>
+                    </div>
+                    <div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl font-bold border-2 border-white/30">
+                        ${petName[0] || '?'}
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-white/20 relative z-10 text-xs">
+                    <div>
+                        <p class="text-[9px] uppercase tracking-wider text-blue-200">Edad</p>
+                        <p class="font-bold">${age}</p>
+                    </div>
+                    <div>
+                        <p class="text-[9px] uppercase tracking-wider text-blue-200">ID Collar</p>
+                        <p class="font-bold">${collarId}</p>
+                    </div>
+                    <div>
+                        <p class="text-[9px] uppercase tracking-wider text-blue-200">Responsable</p>
+                        <p class="font-bold">${ownerName}</p>
+                    </div>
+                    <div>
+                        <p class="text-[9px] uppercase tracking-wider text-blue-200">Contacto</p>
+                        <p class="font-bold">${phone}</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal-admin-carnet').classList.remove('hidden');
+        }
+
+        // ==============================================
+        // AYUDA SOLIDARIA COMUNITARIA
+        // ==============================================
+        function addInitialHelpReportsFeed() {
+            const container = document.getElementById('help-reports-list');
+            container.innerHTML = `
+                <div class="help-card bg-white p-3.5 rounded-2xl border border-gray-100 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow" data-type="abandoned" onclick="focusHelpOnMap(10.4918, -66.8345)">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg flex-shrink-0"><i class="fa-solid fa-dog"></i></div>
+                    <div class="flex-1 text-xs">
+                        <div class="flex justify-between"><span class="bg-amber-50 text-amber-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase text-[9px]">Avistamiento</span></div>
+                        <h5 class="font-extrabold text-gray-800 mt-1.5">Mestizo asustado en Bello Campo</h5>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Se resguarda bajo el elevado.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addInitialHelpMarkers() {
+            createHelpMarker(10.4918, -66.8345, 'abandoned', 'Mestizo en Bello Campo');
+        }
+
+        function createHelpMarker(lat, lng, type, title) {
+            const iconClass = type === 'abandoned' ? 'help-marker-abandoned' : 'help-marker-resource';
+            const iconHtml = type === 'abandoned' ? '<i class="fa-solid fa-dog text-xs"></i>' : '<i class="fa-solid fa-faucet-drip text-xs"></i>';
+            const customIcon = L.divIcon({
+                html: `<div class="help-marker-container ${iconClass}">${iconHtml}</div>`,
+                className: 'custom-help-leaflet-marker',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+            });
+            if (!map) return;
+            const helpMarker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+            helpMarker.bindPopup(`<strong class="text-xs text-gray-800">${title}</strong>`);
+            helpMapMarkersList.push({ lat, lng, type, marker: helpMarker });
+        }
+
+        function focusHelpOnMap(lat, lng) {
+            switchTab('map');
+            setTimeout(() => {
+                if (map) {
+                    map.setView([lat, lng], 17, { animate: true });
+                    const found = helpMapMarkersList.find(m => m.lat === lat && m.lng === lng);
+                    if (found && found.marker) found.marker.openPopup();
+                }
+            }, 300);
+        }
+
+        function openHelpReportModal() {
+            document.getElementById('modal-help-report').classList.remove('hidden');
+        }
+
+        function submitHelpReport(event) {
+            event.preventDefault();
+            const type = document.getElementById('help-type').value;
+            const title = document.getElementById('help-title').value;
+            const desc = document.getElementById('help-desc').value;
+            const sector = document.getElementById('help-coord-preset').value;
+
+            const coord = helpPresetLocations[sector];
+            createHelpMarker(coord.lat, coord.lng, type, title);
+
+            const container = document.getElementById('help-reports-list');
+            const newCard = document.createElement('div');
+            newCard.className = "help-card bg-white p-3.5 rounded-2xl border border-gray-100 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow";
+            newCard.setAttribute('data-type', type);
+            newCard.onclick = () => focusHelpOnMap(coord.lat, coord.lng);
+            
+            const isAbandoned = type === 'abandoned';
+            const badgeColor = isAbandoned ? 'bg-amber-50 text-amber-700' : 'bg-cyan-50 text-cyan-700';
+            const badgeText = isAbandoned ? 'Avistamiento' : 'Recurso';
+            const iconBg = isAbandoned ? 'bg-amber-100 text-amber-600' : 'bg-cyan-100 text-cyan-600';
+            const icon = isAbandoned ? 'fa-dog' : 'fa-faucet-drip';
+
+            newCard.innerHTML = `
+                <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center text-lg flex-shrink-0"><i class="fa-solid ${icon}"></i></div>
+                <div class="flex-1 text-xs">
+                    <div class="flex justify-between"><span class="${badgeColor} font-extrabold px-2.5 py-0.5 rounded-full uppercase text-[9px]">${badgeText}</span></div>
+                    <h5 class="font-extrabold text-gray-800 mt-1.5">${title}</h5>
+                    <p class="text-[11px] text-gray-500 mt-0.5">${desc}</p>
+                </div>
+            `;
+            container.prepend(newCard);
+            closeModal('modal-help-report');
+            showToast("Alerta Creada", "Gracias por colaborar con la comunidad.", "success");
+        }
+
+        function filterHelp(type) {
+            const cards = document.querySelectorAll('.help-card');
+            cards.forEach(card => {
+                if (type === 'all' || card.getAttribute('data-type') === type) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+
+        // AUXILIARES
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+            if (modalId !== 'modal-new-post' || modal.classList.contains('hidden')) {
+                modal.classList.add('hidden');
+                return;
+            }
+            modal.classList.add('modal-exit');
+            setTimeout(() => {
+                if (modal.classList.contains('modal-exit')) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('modal-exit');
+                }
+            }, 160);
+        }
+
+        function toggleTask(element) {
+            const box = element.querySelector('.status-box');
+            if (box.classList.contains('text-ubipet-warning')) {
+                box.className = "status-box text-green-500";
+                box.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i>';
+            } else {
+                box.className = "status-box text-ubipet-warning";
+                box.innerHTML = '<i class="fa-regular fa-circle-check text-lg"></i>';
+            }
+        }
+
+        // SISTEMA TOAST NOTIFICACIONES
+        function showToast(title, message, type = "info") {
+            const toast = document.getElementById('toast-notification');
+            const tTitle = document.getElementById('toast-title');
+            const tMsg = document.getElementById('toast-message');
+            const tIconWrapper = document.getElementById('toast-icon-wrapper');
+
+            tTitle.innerText = title;
+            tMsg.innerText = message;
+
+            if (type === "success") {
+                tIconWrapper.className = "w-8 h-8 rounded-full flex items-center justify-center text-white bg-green-500";
+                tIconWrapper.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                toast.style.borderLeftColor = "#10b981";
+            } else if (type === "error") {
+                tIconWrapper.className = "w-8 h-8 rounded-full flex items-center justify-center text-white bg-red-500";
+                tIconWrapper.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                toast.style.borderLeftColor = "#ef4444";
+            } else {
+                tIconWrapper.className = "w-8 h-8 rounded-full flex items-center justify-center text-white bg-blue-500";
+                tIconWrapper.innerHTML = '<i class="fa-solid fa-info"></i>';
+                toast.style.borderLeftColor = "#2563eb";
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 50);
+
+            setTimeout(hideToast, 6000);
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toast-notification');
+            if (toast) {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        async function toggleHuellita(btn) {
+            const postId = btn.dataset.postId;
+            if (!currentUser || !postId || btn.disabled) return;
+            const wasLiked = btn.dataset.liked === 'true';
+            btn.disabled = true;
+            try {
+                const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+                if (authError) throw authError;
+                const user = authData?.user;
+                if (!user?.id) throw new Error('Inicia sesión para indicar que te gusta esta publicación.');
+
+                const result = wasLiked
+                    ? await supabaseClient.from('publication_likes').delete().eq('publication_id', postId).eq('user_id', user.id)
+                    : await supabaseClient.from('publication_likes').insert([{ publication_id: postId, user_id: user.id }]);
+                if (result.error) throw result.error;
+                await loadCommunityPosts();
+            } catch (error) {
+                console.error('[UbiPet] No se pudo guardar el like:', error);
+                showToast("No se pudo actualizar el like", error?.message || authErrorMessage(error), "error");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function focusCommentInput(btn) {
+            const postCard = btn.closest('.post-card');
+            const input = postCard.querySelector('input[type="text"]');
+            if (input) input.focus();
+        }
+
+        async function submitComment(event, form) {
+            event.preventDefault();
+            const input = form.querySelector('input[type="text"]');
+            const commentText = input.value.trim();
+            if (!commentText) return;
+            const postId = form.dataset.postId;
+            const button = form.querySelector('button[type="submit"]');
+            if (!currentUser || !postId || button?.disabled) return;
+            if (button) button.disabled = true;
+            try {
+                const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+                if (authError) throw authError;
+                const user = authData?.user;
+                if (!user?.id) throw new Error('Inicia sesión para comentar.');
+                const commentPayload = {
+                    publication_id: postId,
+                    user_id: user.id,
+                    author_name: user.user_metadata?.full_name || 'Miembro UbiPet',
+                    body: commentText
+                };
+                const { error } = await supabaseClient.from('publication_comments').insert([commentPayload]);
+                if (error) throw error;
+                input.value = '';
+                await loadCommunityPosts();
+            } catch (error) {
+                console.error('[UbiPet] No se pudo guardar el comentario:', error);
+                showToast("No se pudo guardar el comentario", error?.message || authErrorMessage(error), "error");
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
