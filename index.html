@@ -5,6 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss:; connect-src 'self' https: wss: *.supabase.co https://unpkg.com;">
     <meta name="referrer" content="strict-origin-when-cross-origin">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function(OneSignal) {
+            try {
+                await OneSignal.init({
+                    appId: "ab26f7b2-3ba8-4125-a259-7b0cb181d9fb",
+                    allowLocalhostAsSecureOrigin: true,
+                });
+                window.OneSignalClient = OneSignal;
+                const enablePushButton = () => {
+                    const button = document.getElementById('push-notifications-button');
+                    if (button) button.disabled = false;
+                };
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', enablePushButton, { once: true });
+                } else {
+                    enablePushButton();
+                }
+            } catch (error) {
+                console.error('[UbiPet] No se pudo inicializar OneSignal:', error);
+            }
+        });
+    </script>
     <title>UbiPet - Rastreo GPS, Comunidad de Mascotas & Seguridad</title>
     <!-- Tailwind CSS para diseño y estilos modernos -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -612,6 +636,16 @@
                                 </div>
                             </div>
                         </div>
+
+                        <section class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                            <div>
+                                <h4 class="font-extrabold text-gray-800 text-sm">Notificaciones push</h4>
+                                <p class="text-[10px] text-gray-500 mt-1">Activa los avisos de UbiPet en este dispositivo.</p>
+                            </div>
+                            <button id="push-notifications-button" type="button" onclick="promptPushNotifications()" disabled class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-wait text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors">
+                                <i class="fa-solid fa-bell"></i> Activar notificaciones push
+                            </button>
+                        </section>
 
                         <!-- SECCIÓN OBLIGATORIA DE VERIFICACIÓN PARA PUBLICAR -->
                         <div id="verification-card" class="glass-panel p-5 rounded-2xl border border-blue-100 shadow-sm space-y-3">
@@ -2525,6 +2559,20 @@
                 adminSosMarkers = L.layerGroup().addTo(adminSosMap);
             }
             setTimeout(() => adminSosMap?.invalidateSize(), 0);
+        }
+
+        async function promptPushNotifications() {
+            const OneSignal = window.OneSignalClient;
+            if (!OneSignal) {
+                showToast('Notificaciones no disponibles', 'OneSignal todavía se está inicializando. Inténtalo de nuevo en unos segundos.', 'error');
+                return;
+            }
+            try {
+                await OneSignal.Slidedown.promptPush();
+            } catch (error) {
+                console.error('[UbiPet] No se pudo solicitar permiso para notificaciones push:', error);
+                showToast('No se pudo activar', 'Revisa los permisos de notificaciones de este navegador.', 'error');
+            }
         }
 
         function subscribeGlobalNotifications() {
