@@ -2623,6 +2623,7 @@
             }
 
             submitButton.disabled = true;
+            messageInput.value = '';
             try {
                 let adminId = null;
                 try {
@@ -2634,13 +2635,31 @@
                     console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
                 }
 
-                const { error } = await supabaseClient
-                    .from('global_notifications')
-                    .insert([{ admin_id: adminId, message }]);
-                if (error) throw error;
+                const [internalResult, pushResult] = await Promise.allSettled([
+                    supabaseClient
+                        .from('global_notifications')
+                        .insert([{ admin_id: adminId, message }]),
+                    supabaseClient.functions.invoke('send-global-notification', { body: { message } })
+                ]);
+                const internalError = internalResult.status === 'rejected'
+                    ? internalResult.reason
+                    : internalResult.value.error;
+                const pushError = pushResult.status === 'rejected'
+                    ? pushResult.reason
+                    : pushResult.value.error;
 
-                messageInput.value = '';
-                showToast('Notificación enviada', 'El aviso global se envió correctamente.', 'success');
+                if (internalError) console.error('[UbiPet] Falló el aviso interno de Supabase:', internalError);
+                if (pushError) console.error('[UbiPet] Falló el push nativo de OneSignal:', pushError);
+
+                if (!internalError && !pushError) {
+                    showToast('Envío completado', 'Notificación global y push enviadas exitosamente', 'success');
+                } else if (!internalError || !pushError) {
+                    showToast('Envío parcial', internalError
+                        ? 'El push se envió, pero no se guardó el aviso interno.'
+                        : 'El aviso interno se guardó, pero falló el push nativo.', 'error');
+                } else {
+                    showToast('No se pudo enviar', 'Fallaron el aviso interno y el push nativo. Revisa la consola.', 'error');
+                }
             } catch (error) {
                 console.error('[UbiPet] No se pudo enviar la notificación global:', error);
                 showToast('No se pudo enviar', error?.message || 'Verifica tu conexión y los permisos de Supabase.', 'error');
