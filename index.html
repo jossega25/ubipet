@@ -14,16 +14,10 @@
                     appId: "ab26f7b2-3ba8-4125-a259-7b0cb181d9fb",
                     allowLocalhostAsSecureOrigin: true,
                 });
-                window.OneSignalClient = OneSignal;
-                const enablePushButton = () => {
-                    const button = document.getElementById('push-notifications-button');
-                    if (button) button.disabled = false;
-                };
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', enablePushButton, { once: true });
-                } else {
-                    enablePushButton();
-                }
+                window.OneSignal = OneSignal;
+                updatePushNotificationButton();
+                OneSignal.User.PushSubscription.addEventListener('change', updatePushNotificationButton);
+                OneSignal.Notifications.addEventListener('permissionChange', updatePushNotificationButton);
             } catch (error) {
                 console.error('[UbiPet] No se pudo inicializar OneSignal:', error);
             }
@@ -639,11 +633,11 @@
 
                         <section class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
                             <div>
-                                <h4 class="font-extrabold text-gray-800 text-sm">Notificaciones push</h4>
-                                <p class="text-[10px] text-gray-500 mt-1">Activa los avisos de UbiPet en este dispositivo.</p>
+                                <h4 class="font-extrabold text-gray-800 text-sm">Notificaciones Push</h4>
+                                <p class="text-[10px] text-gray-500 mt-1">Recibe alertas en vivo de tu mascota incluso con el teléfono bloqueado.</p>
                             </div>
-                            <button id="push-notifications-button" type="button" onclick="promptPushNotifications()" disabled class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-wait text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors">
-                                <i class="fa-solid fa-bell"></i> Activar notificaciones push
+                            <button id="push-notifications-button" type="button" onclick="promptPushNotifications()" aria-pressed="false" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors">
+                                <i class="fa-solid fa-bell"></i> Activar Notificaciones Push en este teléfono
                             </button>
                         </section>
 
@@ -2561,14 +2555,33 @@
             setTimeout(() => adminSosMap?.invalidateSize(), 0);
         }
 
+        function updatePushNotificationButton() {
+            const button = document.getElementById('push-notifications-button');
+            if (!button) return;
+            const pushActive = window.OneSignal?.Notifications?.permission === true
+                || window.OneSignal?.User?.PushSubscription?.optedIn === true;
+            button.setAttribute('aria-pressed', String(pushActive));
+            button.className = pushActive
+                ? 'w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-default'
+                : 'w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors';
+            button.innerHTML = pushActive
+                ? '<i class="fa-solid fa-circle-check"></i> Notificaciones Push Activas ✓'
+                : '<i class="fa-solid fa-bell"></i> Activar Notificaciones Push en este teléfono';
+        }
+
         async function promptPushNotifications() {
-            const OneSignal = window.OneSignalClient;
+            const OneSignal = window.OneSignal;
             if (!OneSignal) {
-                showToast('Notificaciones no disponibles', 'OneSignal todavía se está inicializando. Inténtalo de nuevo en unos segundos.', 'error');
+                alert('El servicio de notificaciones no está listo aún.');
                 return;
             }
             try {
+                if (OneSignal.User.PushSubscription.optedIn) {
+                    updatePushNotificationButton();
+                    return;
+                }
                 await OneSignal.Slidedown.promptPush();
+                updatePushNotificationButton();
             } catch (error) {
                 console.error('[UbiPet] No se pudo solicitar permiso para notificaciones push:', error);
                 showToast('No se pudo activar', 'Revisa los permisos de notificaciones de este navegador.', 'error');
