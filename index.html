@@ -806,6 +806,27 @@
                     </div>
                 </section>
 
+                <section class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                            <i class="fa-solid fa-bullhorn"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-extrabold text-white">Notificación Global</h2>
+                            <p class="text-[10px] text-slate-400 mt-1">Enviar un aviso a todos los usuarios conectados.</p>
+                        </div>
+                    </div>
+                    <form onsubmit="sendGlobalNotification(event)" class="space-y-3">
+                        <label for="global-notification-message" class="sr-only">Mensaje de notificación global</label>
+                        <textarea id="global-notification-message" required maxlength="1000" rows="3" placeholder="Redacta el mensaje para todos los dispositivos..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-cyan-500 resize-y"></textarea>
+                        <div class="flex justify-end">
+                            <button id="global-notification-submit" type="submit" class="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-wait text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors">
+                                <i class="fa-solid fa-paper-plane"></i> Enviar Notificación Global
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
                 <!-- Formulario + Base de Datos Grid -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <!-- Registro Nuevo Usuario (GPS) -->
@@ -1048,6 +1069,7 @@
         let adminSosMap = null;
         let adminSosMarkers = null;
         let adminSosChannel = null;
+        let globalNotificationsChannel = null;
         let routeIndex = 0;
         let helpMapMarkersList = [];
         let gpsSimulationInterval = null;
@@ -1206,6 +1228,7 @@
 
         async function openAuthenticatedView(user) {
             currentUser = user;
+            subscribeGlobalNotifications();
             hideLogin();
             document.getElementById('view-landing').classList.add('hidden');
             const isAdmin = isSuperAdmin(user);
@@ -1244,6 +1267,10 @@
             if (adminSosChannel) {
                 await supabaseClient.removeChannel(adminSosChannel);
                 adminSosChannel = null;
+            }
+            if (globalNotificationsChannel) {
+                await supabaseClient.removeChannel(globalNotificationsChannel);
+                globalNotificationsChannel = null;
             }
             document.getElementById('view-user-app').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
@@ -2503,6 +2530,54 @@
                 adminSosMarkers = L.layerGroup().addTo(adminSosMap);
             }
             setTimeout(() => adminSosMap?.invalidateSize(), 0);
+        }
+
+        function subscribeGlobalNotifications() {
+            if (!currentUser || globalNotificationsChannel) return;
+            globalNotificationsChannel = supabaseClient
+                .channel('global-notifications')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'global_notifications'
+                }, payload => {
+                    const message = String(payload.new?.message ?? payload.new?.mensaje ?? '').trim();
+                    if (message) showToast('Notificación Global', message, 'info');
+                })
+                .subscribe(status => {
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        console.error('[UbiPet] No se pudo escuchar notificaciones globales en tiempo real.');
+                    }
+                });
+        }
+
+        async function sendGlobalNotification(event) {
+            event.preventDefault();
+            if (!isSuperAdmin(currentUser)) {
+                showToast('Acceso denegado', 'Solo el Super Admin puede enviar notificaciones globales.', 'error');
+                return;
+            }
+
+            const messageInput = document.getElementById('global-notification-message');
+            const submitButton = document.getElementById('global-notification-submit');
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            submitButton.disabled = true;
+            try {
+                const { error } = await supabaseClient
+                    .from('global_notifications')
+                    .insert([{ message }]);
+                if (error) throw error;
+
+                messageInput.value = '';
+                showToast('Notificación enviada', 'El aviso global se envió correctamente.', 'success');
+            } catch (error) {
+                console.error('[UbiPet] No se pudo enviar la notificación global:', error);
+                showToast('No se pudo enviar', error?.message || 'Verifica tu conexión y los permisos de Supabase.', 'error');
+            } finally {
+                submitButton.disabled = false;
+            }
         }
 
         function subscribeSOSRealtime() {
