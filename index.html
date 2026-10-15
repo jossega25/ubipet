@@ -2623,52 +2623,34 @@
             }
 
             submitButton.disabled = true;
-            messageInput.value = '';
             try {
-                let adminId = null;
-                try {
-                    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
-                    if (sessionError) console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
-                    const sessionUser = sessionData?.session?.user;
-                    adminId = isSuperAdmin(sessionUser) ? sessionUser.id : null;
-                } catch (sessionError) {
-                    console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
-                }
-
-                const [internalResult, pushResult] = await Promise.allSettled([
+                const [dbResult, pushResult] = await Promise.allSettled([
                     supabaseClient
                         .from('global_notifications')
-                        .insert([{ admin_id: adminId, message }]),
+                        .insert([{ message, created_at: new Date() }]),
                     supabaseClient.functions.invoke('send-global-notification', { body: { message } })
                 ]);
-                const internalError = internalResult.status === 'rejected'
-                    ? internalResult.reason
-                    : internalResult.value.error;
-                const pushError = pushResult.status === 'rejected'
-                    ? pushResult.reason
-                    : pushResult.value.error;
-                let pushFailureMessage = pushError?.message || 'Error desconocido al enviar el push.';
+                const dbError = dbResult.status === 'rejected' ? dbResult.reason : dbResult.value.error;
+                const pushError = pushResult.status === 'rejected' ? pushResult.reason : pushResult.value.error;
+                if (dbError) throw dbError;
+
+                let pushErrorMessage = pushError?.message || 'Error desconocido al enviar el push.';
                 if (pushError?.context instanceof Response) {
                     const errorPayload = await pushError.context.clone().json().catch(() => null);
                     if (errorPayload?.error) {
-                        pushFailureMessage = errorPayload.details
+                        pushErrorMessage = errorPayload.details
                             ? `${errorPayload.error} ${errorPayload.details}`
                             : errorPayload.error;
                     }
                 }
-
-                if (internalError) console.error('[UbiPet] Falló el aviso interno de Supabase:', internalError);
-                if (pushError) console.error('[UbiPet] Falló el push nativo de OneSignal:', pushError);
-
-                if (!internalError && !pushError) {
-                    showToast('Envío completado', 'Notificación global y push enviadas exitosamente', 'success');
-                } else if (!internalError || !pushError) {
-                    showToast('Envío parcial', internalError
-                        ? 'El push se envió, pero no se guardó el aviso interno.'
-                        : `El aviso interno se guardó, pero falló el push: ${pushFailureMessage}`, 'error');
-                } else {
-                    showToast('No se pudo enviar', `Fallaron el aviso interno y el push nativo: ${pushFailureMessage}`, 'error');
+                if (pushError) {
+                    console.error('[UbiPet] Falló el push nativo de OneSignal:', pushError);
+                    showToast('Aviso interno guardado', `Falló el push nativo: ${pushErrorMessage}`, 'error');
+                    return;
                 }
+
+                messageInput.value = '';
+                showToast('Envío completado', 'Notificación global enviada exitosamente', 'success');
             } catch (error) {
                 console.error('[UbiPet] No se pudo enviar la notificación global:', error);
                 showToast('No se pudo enviar', error?.message || 'Verifica tu conexión y los permisos de Supabase.', 'error');
