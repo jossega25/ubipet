@@ -816,9 +816,9 @@
                             <p class="text-[10px] text-slate-400 mt-1">Enviar un aviso a todos los usuarios conectados.</p>
                         </div>
                     </div>
-                    <form onsubmit="sendGlobalNotification(event)" class="space-y-3">
+                    <form onsubmit="sendGlobalNotification(event, this)" novalidate class="space-y-3">
                         <label for="global-notification-message" class="sr-only">Mensaje de notificación global</label>
-                        <textarea id="global-notification-message" required maxlength="1000" rows="3" placeholder="Redacta el mensaje para todos los dispositivos..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-cyan-500 resize-y"></textarea>
+                        <textarea id="global-notification-message" name="message" maxlength="1000" rows="3" placeholder="Redacta el mensaje para todos los dispositivos..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-cyan-500 resize-y"></textarea>
                         <div class="flex justify-end">
                             <button id="global-notification-submit" type="submit" class="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-wait text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors">
                                 <i class="fa-solid fa-paper-plane"></i> Enviar Notificación Global
@@ -1047,11 +1047,6 @@
         const MAX_MEDIA_FILE_SIZE = 100 * 1024 * 1024;
         const supabaseClient = window.supabase?.createClient
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-            : null;
-        const accountCreationClient = window.supabase?.createClient
-            ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-            })
             : null;
         let currentUser = null;
         let activeTab = 'map';
@@ -2551,17 +2546,21 @@
                 });
         }
 
-        async function sendGlobalNotification(event) {
+        async function sendGlobalNotification(event, form) {
             event.preventDefault();
             if (!isSuperAdmin(currentUser)) {
                 showToast('Acceso denegado', 'Solo el Super Admin puede enviar notificaciones globales.', 'error');
                 return;
             }
 
-            const messageInput = document.getElementById('global-notification-message');
+            const messageInput = form.elements.namedItem('message');
             const submitButton = document.getElementById('global-notification-submit');
-            const message = messageInput.value.trim();
-            if (!message) return;
+            const message = String(messageInput?.value || '').trim();
+            if (!message) {
+                showToast('Mensaje requerido', 'Escribe el mensaje antes de enviarlo.', 'error');
+                messageInput?.focus();
+                return;
+            }
 
             submitButton.disabled = true;
             try {
@@ -2569,7 +2568,8 @@
                 try {
                     const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
                     if (sessionError) console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
-                    adminId = sessionData?.session?.user?.id || null;
+                    const sessionUser = sessionData?.session?.user;
+                    adminId = isSuperAdmin(sessionUser) ? sessionUser.id : null;
                 } catch (sessionError) {
                     console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
                 }
@@ -2701,17 +2701,23 @@
 
             let mascotaPayload = null;
             try {
-                const { data: accountData, error: accountError } = await accountCreationClient.auth.signUp({
-                    email: customerEmail,
-                    password: customerPassword
+                const accountResponse = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                    method: 'POST',
+                    headers: {
+                        apikey: SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: customerEmail, password: customerPassword })
                 });
-                if (accountError) {
+                const accountResult = await accountResponse.json().catch(() => ({}));
+                if (!accountResponse.ok) {
+                    const accountError = new Error(accountResult.msg || accountResult.message || accountResult.error_description || 'No se pudo crear la cuenta.');
                     console.error('[UbiPet] Error al crear la cuenta Auth:', accountError.message);
                     showToast("No se pudo crear la cuenta", authErrorMessage(accountError), "error");
                     return;
                 }
 
-                const customerUser = accountData.user;
+                const customerUser = accountResult.user || accountResult;
                 if (!customerUser?.id || customerUser.identities?.length === 0) {
                     const accountError = new Error('La cuenta ya existe o Auth no devolvió un UUID utilizable.');
                     console.error('[UbiPet] No se pudo resolver la cuenta cliente:', accountError.message);
