@@ -2647,6 +2647,15 @@
                 const pushError = pushResult.status === 'rejected'
                     ? pushResult.reason
                     : pushResult.value.error;
+                let pushFailureMessage = pushError?.message || 'Error desconocido al enviar el push.';
+                if (pushError?.context instanceof Response) {
+                    const errorPayload = await pushError.context.clone().json().catch(() => null);
+                    if (errorPayload?.error) {
+                        pushFailureMessage = errorPayload.details
+                            ? `${errorPayload.error} ${errorPayload.details}`
+                            : errorPayload.error;
+                    }
+                }
 
                 if (internalError) console.error('[UbiPet] Falló el aviso interno de Supabase:', internalError);
                 if (pushError) console.error('[UbiPet] Falló el push nativo de OneSignal:', pushError);
@@ -2656,9 +2665,9 @@
                 } else if (!internalError || !pushError) {
                     showToast('Envío parcial', internalError
                         ? 'El push se envió, pero no se guardó el aviso interno.'
-                        : 'El aviso interno se guardó, pero falló el push nativo.', 'error');
+                        : `El aviso interno se guardó, pero falló el push: ${pushFailureMessage}`, 'error');
                 } else {
-                    showToast('No se pudo enviar', 'Fallaron el aviso interno y el push nativo. Revisa la consola.', 'error');
+                    showToast('No se pudo enviar', `Fallaron el aviso interno y el push nativo: ${pushFailureMessage}`, 'error');
                 }
             } catch (error) {
                 console.error('[UbiPet] No se pudo enviar la notificación global:', error);
