@@ -1,0 +1,11 @@
+{
+  "name": "UbiPet",
+  "short_name": "UbiPet",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "orientation": "portrait",
+  "theme_color": "#111827",
+  "background_color": "#111827"
+}
