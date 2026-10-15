@@ -2572,15 +2572,14 @@
         async function promptPushNotifications() {
             const OneSignal = window.OneSignal;
             if (!OneSignal) {
-                alert('El servicio de notificaciones no está listo aún.');
+                alert('El servicio de notificaciones no está cargado.');
                 return;
             }
             try {
-                if (OneSignal.User.PushSubscription.optedIn) {
-                    updatePushNotificationButton();
-                    return;
-                }
                 await OneSignal.Slidedown.promptPush();
+                if (OneSignal.User && OneSignal.User.PushSubscription) {
+                    await OneSignal.User.PushSubscription.optIn();
+                }
                 updatePushNotificationButton();
             } catch (error) {
                 console.error('[UbiPet] No se pudo solicitar permiso para notificaciones push:', error);
