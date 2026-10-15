@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://images.unsplash.com https://afsvdjbtkhshtppakqbe.supabase.co https://server.arcgisonline.com; media-src 'self' blob: https://afsvdjbtkhshtppakqbe.supabase.co; connect-src 'self' https://afsvdjbtkhshtppakqbe.supabase.co wss://afsvdjbtkhshtppakqbe.supabase.co">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss:; connect-src 'self' https: wss: *.supabase.co https://unpkg.com;">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>UbiPet - Rastreo GPS, Comunidad de Mascotas & Seguridad</title>
     <!-- Tailwind CSS para diseño y estilos modernos -->
@@ -2565,9 +2565,18 @@
 
             submitButton.disabled = true;
             try {
+                let adminId = null;
+                try {
+                    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+                    if (sessionError) console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
+                    adminId = sessionData?.session?.user?.id || null;
+                } catch (sessionError) {
+                    console.warn('[UbiPet] No se pudo consultar la sesión admin; se enviará admin_id null.', sessionError);
+                }
+
                 const { error } = await supabaseClient
                     .from('global_notifications')
-                    .insert([{ message }]);
+                    .insert([{ admin_id: adminId, message }]);
                 if (error) throw error;
 
                 messageInput.value = '';
