@@ -481,6 +481,7 @@
                             </div>
                         </div>
                     </div>
+                    
                 </section>
 
                 <!-- 2. MÓDULO COMUNIDAD (CLUB DE LAS HUELLAS) -->
@@ -876,6 +877,10 @@
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Correo de la cuenta cliente</label>
                                 <input id="reg-email" name="customerEmail" type="email" required maxlength="254" placeholder="cliente@correo.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none focus:ring-1 focus:ring-ubipet-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre y Apellido del Dueño</label>
+                                <input id="reg-owner-name" name="ownerName" type="text" required maxlength="100" placeholder="Ej: José Marcano" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white outline-none focus:ring-1 focus:ring-ubipet-500">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Contraseña del Cliente</label>
@@ -1308,12 +1313,18 @@
         }
 
         function mascotaToRegisteredUser(row, index) {
+            const owner = row.nombre_dueno
+                || row.raw_user_meta_data?.full_name
+                || row.raw_user_meta_data?.owner_name
+                || row.cliente_email
+                || 'Responsable';
+
             return {
                 id: index,
                 petName: row.nombre_mascota || row.nombre,
                 breed: row.raza,
                 age: row.edad,
-                ownerName: row.cliente_email || row.user_id || currentUser?.user_metadata?.full_name || currentUser?.email || 'Responsable',
+                ownerName: owner,
                 phone: row.telefono,
                 collarId: row.imei_gps || row.collar_id,
                 status: row.estado === 'inactivo' ? 'offline' : 'online',
@@ -1335,7 +1346,12 @@
             setText('carnet-pet-breed', row?.raza || 'Registra tu dispositivo GPS');
             setText('carnet-pet-age', row?.edad);
             setText('carnet-pet-imei', row?.imei_gps);
-            setText('carnet-owner', currentUser?.user_metadata?.full_name || currentUser?.email || 'Responsable');
+            const ownerName = currentUser?.user_metadata?.full_name
+                || currentUser?.user_metadata?.owner_name
+                || row?.nombre_dueno
+                || currentUser?.email
+                || 'Responsable';
+            setText('carnet-owner', ownerName);
             setText('carnet-phone', row?.telefono);
             setText('map-pet-name', row?.nombre_mascota || 'Mi mascota');
             setText('map-collar-name', row?.nombre_mascota || 'Mi mascota');
@@ -1350,7 +1366,7 @@
             updatePetCarnet(null);
             const { data, error } = await supabaseClient
                 .from('mascotas')
-                .select('nombre_mascota,imei_gps,raza,edad,telefono,user_id')
+                .select('nombre_mascota,imei_gps,raza,edad,telefono,user_id,nombre_dueno,cliente_email')
                 .eq('user_id', currentUser.id)
                 .order('created_at', { ascending: false })
                 .limit(1);
@@ -1370,7 +1386,7 @@
             refreshAdminViews();
             const { data, error } = await supabaseClient
                 .from('mascotas')
-                .select('user_id,nombre_mascota,imei_gps,raza,edad,telefono')
+                .select('user_id,nombre_mascota,imei_gps,raza,edad,telefono,nombre_dueno,cliente_email')
                 .order('created_at', { ascending: false });
             if (error) {
                 showToast("No se pudieron cargar los clientes", authErrorMessage(error), "error");
@@ -2754,6 +2770,7 @@
             const fieldValue = name => form.elements.namedItem(name).value.trim();
             const customerEmail = fieldValue('customerEmail').toLowerCase();
             const customerPassword = form.elements.namedItem('customerPassword').value;
+            const ownerName = fieldValue('ownerName');
             const petName = fieldValue('petName');
             const breed = fieldValue('breed');
             const age = fieldValue('age');
@@ -2775,43 +2792,41 @@
                 return;
             }
 
-            let mascotaPayload = null;
             try {
-                const accountResponse = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-                    method: 'POST',
-                    headers: {
-                        apikey: SUPABASE_ANON_KEY,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email: customerEmail, password: customerPassword })
+                const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+                    email: customerEmail,
+                    password: customerPassword,
+                    options: {
+                        data: {
+                            full_name: ownerName,
+                            owner_name: ownerName,
+                            pet_name: petName
+                        }
+                    }
                 });
-                const accountResult = await accountResponse.json().catch(() => ({}));
-                if (!accountResponse.ok) {
-                    const accountError = new Error(accountResult.msg || accountResult.message || accountResult.error_description || 'No se pudo crear la cuenta.');
-                    console.error('[UbiPet] Error al crear la cuenta Auth:', accountError.message);
-                    showToast("No se pudo crear la cuenta", authErrorMessage(accountError), "error");
+                if (authError) {
+                    showToast("No se pudo crear la cuenta", authErrorMessage(authError), "error");
                     return;
                 }
 
-                const customerUser = accountResult.user || accountResult;
+                const customerUser = authData?.user;
                 if (!customerUser?.id || customerUser.identities?.length === 0) {
-                    const accountError = new Error('La cuenta ya existe o Auth no devolvió un UUID utilizable.');
-                    console.error('[UbiPet] No se pudo resolver la cuenta cliente:', accountError.message);
                     showToast("Correo ya registrado", "La cuenta ya existe o no se pudo confirmar su UUID.", "error");
                     return;
                 }
 
-                mascotaPayload = {
-                    user_id: customerUser.id,
-                    nombre_mascota: petName,
-                    raza: breed,
-                    edad: age,
-                    telefono: phone,
-                    imei_gps: collarId
-                };
                 const { error: insertError } = await supabaseClient
                     .from('mascotas')
-                    .insert([mascotaPayload]);
+                    .insert([{
+                        user_id: customerUser.id,
+                        nombre_mascota: petName,
+                        raza: breed,
+                        edad: age,
+                        telefono: phone,
+                        imei_gps: collarId,
+                        nombre_dueno: ownerName,
+                        cliente_email: customerEmail
+                    }]);
                 if (insertError) {
                     console.error('[UbiPet] Error al registrar la mascota:', insertError.message);
                     showToast("Cuenta creada, pero falló el registro de la mascota", authErrorMessage(insertError), "error");
@@ -2819,7 +2834,7 @@
                 }
 
                 await loadAdminMascotas();
-                showToast("Cliente y GPS registrados", `Se asignó ${collarId} a ${customerEmail}.`, "success");
+                showToast("Cliente registrado", `Dispositivo ${collarId} asignado a ${ownerName}.`, "success");
                 form.reset();
             } catch (registrationError) {
                 console.error('[UbiPet] Excepción durante el registro del cliente/mascota:', registrationError?.message || 'Error desconocido.');
