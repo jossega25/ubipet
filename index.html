@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="UbiPet">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#111827">
+    <meta name="theme-color" content="#09090b">
     <link rel="manifest" href="/manifest.json">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss:; connect-src 'self' https: wss: *.supabase.co https://unpkg.com;">
     <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -214,6 +214,16 @@
         .help-marker-resource {
             background-color: #06b6d4;
         }
+        @supports (height: 100dvh) {
+            @media (max-width: 639px) {
+                #view-user-app {
+                    min-height: 100dvh;
+                }
+                #view-user-app > .app-shell {
+                    height: 100dvh;
+                }
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen overflow-x-hidden">
@@ -376,19 +386,7 @@
     <!-- PANTALLA 3: MÓDULO PWA USUARIO REGISTRADO (LUFFYTEST) -->
     <!-- ============================================== -->
     <div id="view-user-app" class="hidden min-h-screen w-full flex items-center justify-center p-0 sm:p-4 bg-slate-950">
-        <!-- CONTENEDOR DE DISPOSITIVO MÓVIL MOCK -->
-        <div class="relative w-full max-w-md bg-white h-screen sm:h-[840px] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-gray-100 sm:border-gray-800">
-            <!-- BARRA DE ESTADO DEL TELÉFONO (Simulada) -->
-            <div class="bg-slate-900 text-white text-xs px-6 py-2 flex justify-between items-center z-50 select-none">
-                <span class="font-semibold" id="phone-time">12:00</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-[10px] bg-ubipet-500 text-white px-1.5 py-0.5 rounded-full font-bold">UbiPet PWA</span>
-                    <i class="fa-solid fa-signal text-[10px]"></i>
-                    <i class="fa-solid fa-wifi text-[10px]"></i>
-                    <i class="fa-solid fa-battery-three-quarters text-sm text-green-400"></i>
-                </div>
-            </div>
-
+        <div class="app-shell relative w-full max-w-md bg-white h-screen sm:h-[840px] sm:rounded-[40px] shadow-none sm:shadow-2xl overflow-hidden flex flex-col border-0 sm:border sm:border-gray-800">
             <!-- BANNER DE ALERTA SOS GLOBAL -->
             <div id="sos-global-banner" class="hidden bg-red-600 text-white text-xs font-semibold py-2 px-4 flex justify-between items-center animate-pulse z-40 p-2 text-center">
                 <span class="flex items-center gap-2 mx-auto justify-center text-[11px]">
@@ -1148,8 +1146,6 @@
         };
 
         window.onload = async function() {
-            updateClock();
-            setInterval(updateClock, 1000);
             refreshAdminViews();
             addInitialHelpReportsFeed();
             updateMyProfileGrid();
@@ -1166,17 +1162,6 @@
             }
             if (data.session) await openAuthenticatedView(data.session.user);
         };
-
-        // RELOJ
-        function updateClock() {
-            const now = new Date();
-            let hours = now.getHours();
-            let minutes = now.getMinutes();
-            hours = hours < 10 ? '0' + hours : hours;
-            minutes = minutes < 10 ? '0' + minutes : minutes;
-            const element = document.getElementById('phone-time');
-            if (element) element.innerText = hours + ':' + minutes;
-        }
 
         function showLogin() {
             document.getElementById('view-login').classList.remove('hidden');
