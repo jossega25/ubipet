@@ -95,6 +95,35 @@
         .safe-area-top-offset {
             top: max(16px, env(safe-area-inset-top));
         }
+        .nav-tab {
+            --nav-active-color: #2563eb;
+            background: transparent;
+        }
+        .nav-tab::before {
+            content: "";
+            position: absolute;
+            top: -13px;
+            left: 10%;
+            width: 80%;
+            height: 3px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, transparent, var(--nav-active-color), transparent);
+            filter: drop-shadow(0 0 4px var(--nav-active-color));
+            opacity: 0;
+            transform: scaleX(0.5);
+            transition: opacity 180ms ease, transform 180ms ease;
+            pointer-events: none;
+        }
+        .nav-tab.nav-tab-active {
+            color: var(--nav-active-color);
+        }
+        .nav-tab.nav-tab-active::before {
+            opacity: 1;
+            transform: scaleX(1);
+        }
+        #nav-community { --nav-active-color: #7c3aed; }
+        #nav-help { --nav-active-color: #0891b2; }
+        #nav-profile { --nav-active-color: #2563eb; }
         button:not(:disabled) {
             transform-origin: center;
             transition: transform 180ms ease, translate 180ms ease, scale 180ms ease, box-shadow 180ms ease, filter 180ms ease;
@@ -716,30 +745,26 @@
             </div>
 
             <!-- NAVEGACIÓN INFERIOR (Empresarial con división azul y sombra) -->
-            <div class="bg-white border-t-2 border-blue-500 px-2 py-3 flex justify-around items-center z-40 shadow-[0_-8px_25px_rgba(37,99,235,0.2)] relative">
-                <button onclick="switchTab('map')" id="nav-map" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-ubipet-500 transition-all relative">
+            <div class="bg-white border-t border-gray-100 px-2 py-3 flex justify-around items-center z-40 shadow-[0_-8px_25px_rgba(15,23,42,0.12)] relative">
+                <button onclick="switchTab('map')" id="nav-map" class="nav-tab nav-tab-active flex flex-col items-center space-y-1 py-1 px-2 transition-all relative" aria-current="page">
                     <i class="fa-solid fa-map-location-dot text-lg"></i>
                     <span class="text-[9px] font-bold">Rastreo</span>
-                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full" id="dot-map"></span>
                 </button>
-                <button onclick="switchTab('community')" id="nav-community" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-gray-400 transition-all relative">
+                <button onclick="switchTab('community')" id="nav-community" class="nav-tab flex flex-col items-center space-y-1 py-1 px-2 text-gray-400 transition-all relative">
                     <i class="fa-solid fa-users-viewfinder text-lg"></i>
                     <span class="text-[9px] font-medium">Club</span>
-                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full hidden" id="dot-community"></span>
                 </button>
                 <!-- Botón de alerta SOS con borde blanco más grande y pulso carmesí -->
                 <button onclick="switchTab('sos')" id="nav-sos" class="flex flex-col items-center -mt-9 bg-gradient-to-br from-red-500 to-red-600 text-white w-16 h-16 rounded-full shadow-[0_5px_20px_rgba(239,68,68,0.5)] border-4 border-white justify-center z-50 transform hover:scale-105 active:scale-95 transition-transform duration-200">
                     <i class="fa-solid fa-bell text-xl"></i>
                 </button>
-                <button onclick="switchTab('help')" id="nav-help" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-gray-400 transition-all relative">
+                <button onclick="switchTab('help')" id="nav-help" class="nav-tab flex flex-col items-center space-y-1 py-1 px-2 text-gray-400 transition-all relative">
                     <i class="fa-solid fa-hand-holding-heart text-lg"></i>
                     <span class="text-[9px] font-medium">Solidario</span>
-                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full hidden" id="dot-help"></span>
                 </button>
-                <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center space-y-1 py-1 px-2 rounded-xl text-gray-400 transition-all relative">
+                <button onclick="switchTab('profile')" id="nav-profile" class="nav-tab flex flex-col items-center space-y-1 py-1 px-2 text-gray-400 transition-all relative">
                     <i class="fa-solid fa-address-card text-lg"></i>
                     <span class="text-[9px] font-medium">Carnet</span>
-                    <span class="absolute bottom-1 w-1.5 h-1.5 bg-ubipet-500 rounded-full hidden" id="dot-profile"></span>
                 </button>
             </div>
         </div>
@@ -1835,15 +1860,11 @@
             const tabs = ['map', 'community', 'sos', 'help', 'profile'];
             tabs.forEach(tab => {
                 const button = document.getElementById(`nav-${tab}`);
-                const dot = document.getElementById(`dot-${tab}`);
-                if (tab === targetTab) {
-                    button.classList.add('text-ubipet-500');
-                    button.classList.remove('text-gray-400');
-                    if (dot) dot.classList.remove('hidden');
-                } else {
-                    button.classList.add('text-gray-400');
-                    button.classList.remove('text-ubipet-500');
-                    if (dot) dot.classList.add('hidden');
+                if (button.classList.contains('nav-tab')) {
+                    const isActive = tab === targetTab;
+                    button.classList.toggle('nav-tab-active', isActive);
+                    button.classList.toggle('text-gray-400', !isActive);
+                    button.setAttribute('aria-current', isActive ? 'page' : 'false');
                 }
             });
 
