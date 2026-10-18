@@ -1772,8 +1772,11 @@
         async function updateMyProfileGrid() {
             const gridContainer = document.getElementById('grid-user-photos');
             const counter = document.getElementById('posts-counter');
-            const profileName = currentUser?.user_metadata?.full_name || currentUser?.email || 'Mi Perfil';
-            document.getElementById('club-profile-name').textContent = profileName;
+            const petName = userProfile?.pet_name
+                || registeredUsers[0]?.petName
+                || currentUser?.user_metadata?.pet_name
+                || 'Mi mascota';
+            document.getElementById('club-profile-name').textContent = petName;
             const profileImage = document.getElementById('club-profile-image');
             if (profileImage) profileImage.src = userProfile?.verification_photo_url || defaultPetImage;
             const verificationBadge = document.getElementById('club-profile-verified-badge');
@@ -1800,7 +1803,10 @@
                 return;
             }
 
-            myProfilePosts = (data || []).map(normalizePublication);
+            myProfilePosts = (data || []).map(row => {
+                const post = normalizePublication(row);
+                return { ...post, pet_name: post.pet_name || petName };
+            });
             counter.textContent = `${myProfilePosts.length} Publicaciones`;
             if (!myProfilePosts.length) {
                 gridContainer.innerHTML = '<div class="col-span-3 text-center py-12 text-gray-400 text-xs"><i class="fa-solid fa-images text-2xl mb-2 block"></i>Aún no has publicado en el Club.</div>';
@@ -2230,6 +2236,7 @@
                 caption: row.caption ?? row.descripcion ?? '',
                 type: row.type ?? row.tipo ?? 'image',
                 author_name: row.author_name ?? row.nombre_autor ?? 'Miembro UbiPet',
+                pet_name: row.pet_name ?? row.nombre_mascota ?? '',
                 media_url: row.media_url || '',
                 created_at: row.created_at || row.fecha_creacion || null,
                 location: row.location || row.ubicacion || 'Caracas'
@@ -2282,7 +2289,7 @@
             const feed = document.getElementById('community-feed');
             const caption = escapeHTML(post.caption);
             const location = escapeHTML(post.location || 'Caracas');
-            const author = escapeHTML(post.author_name || 'Miembro UbiPet');
+            const author = escapeHTML(post.pet_name || post.author_name || 'Mascota UbiPet');
             const mediaUrl = escapeHTML(post.media_url);
             const postId = escapeHTML(post.id);
             const normalizedId = String(post.id);
@@ -2413,6 +2420,10 @@
                 const postPayload = {
                     user_id: user.id,
                     author_name: user.user_metadata?.full_name || 'Miembro UbiPet',
+                    pet_name: userProfile?.pet_name
+                        || registeredUsers[0]?.petName
+                        || user.user_metadata?.pet_name
+                        || 'Mi mascota',
                     caption,
                     type,
                     media_url: publicUrlData.publicUrl,
