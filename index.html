@@ -1130,7 +1130,7 @@
         let deviceMarker; // Teléfono del Usuario
         let livePathLine;
         let searchRadarCircle = null;
-        let currentMapStyle = 'streets';
+        let currentMapStyle = 'satellite';
         let isSOSMode = false;
         let activeSosId = null;
         let sosActivationToken = 0;
@@ -1429,10 +1429,10 @@
                 attributionControl: true
             }).setView(defaultPos, 16);
 
-            L.tileLayer(mapLayers.streets, {
-                maxZoom: 19,
+            L.tileLayer(mapLayers.satellite, {
+                maxZoom: 18,
                 referrerPolicy: 'no-referrer',
-                attribution: mapLayers.streetsAttribution
+                attribution: mapLayers.satelliteAttribution
             }).addTo(map);
 
             // 1. Marcador del Perro (Luffy)
