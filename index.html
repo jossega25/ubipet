@@ -83,6 +83,12 @@
         .glass-blue {
             background: linear-gradient(135deg, rgba(37, 99, 235, 0.78), rgba(30, 64, 175, 0.72));
         }
+        .carnet-scroll-container {
+            overflow-y: auto !important;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
         button:not(:disabled) {
             transform-origin: center;
             transition: transform 180ms ease, translate 180ms ease, scale 180ms ease, box-shadow 180ms ease, filter 180ms ease;
@@ -605,7 +611,7 @@
                         </button>
                     </div>
 
-                    <div class="profile-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-auto touch-pan-y p-4 space-y-4 pb-24">
+                    <div class="carnet-scroll-container min-h-0 flex-1 p-4 space-y-4 pb-24">
                         <!-- Carnet Virtual -->
                         <div class="glass-panel glass-blue text-white p-5 rounded-3xl shadow-xl relative overflow-hidden">
                             <div class="flex justify-between items-start relative z-10">
