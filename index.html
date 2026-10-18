@@ -89,6 +89,12 @@
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
         }
+        .safe-area-top {
+            padding-top: max(16px, env(safe-area-inset-top)) !important;
+        }
+        .safe-area-top-offset {
+            top: max(16px, env(safe-area-inset-top));
+        }
         button:not(:disabled) {
             transform-origin: center;
             transition: transform 180ms ease, translate 180ms ease, scale 180ms ease, box-shadow 180ms ease, filter 180ms ease;
@@ -394,7 +400,7 @@
     <div id="view-user-app" class="hidden min-h-screen w-full flex items-center justify-center p-0 sm:p-4 bg-slate-950">
         <div class="app-shell relative w-full max-w-md bg-white h-screen sm:h-[840px] sm:rounded-[40px] shadow-none sm:shadow-2xl overflow-hidden flex flex-col border-0 sm:border sm:border-gray-800">
             <!-- BANNER DE ALERTA SOS GLOBAL -->
-            <div id="sos-global-banner" class="hidden bg-red-600 text-white text-xs font-semibold py-2 px-4 flex justify-between items-center animate-pulse z-40 p-2 text-center">
+            <div id="sos-global-banner" class="safe-area-top hidden bg-red-600 text-white text-xs font-semibold py-2 px-4 flex justify-between items-center animate-pulse z-40 p-2 text-center">
                 <span class="flex items-center gap-2 mx-auto justify-center text-[11px]">
                     <i class="fa-solid fa-triangle-exclamation text-white"></i>
                     <span id="sos-alert-text">¡ALERTA SOS ACTIVA! Luffy se ha extraviado</span>
@@ -413,7 +419,7 @@
                         <div id="map" class="h-full w-full"></div>
 
                         <!-- Botones flotantes del Mapa -->
-                        <div class="absolute top-4 right-4 z-30 flex flex-col space-y-2">
+                        <div class="safe-area-top-offset absolute right-4 z-30 flex flex-col space-y-2">
                             <button onclick="recenterMap()" class="bg-white p-3 rounded-full shadow-lg text-ubipet-500 hover:bg-gray-100 active:scale-95 transition-transform flex items-center justify-center w-11 h-11" title="Centrar en la mascota">
                                 <i class="fa-solid fa-crosshairs text-lg"></i>
                             </button>
@@ -490,7 +496,7 @@
 
                 <!-- 2. MÓDULO COMUNIDAD (CLUB DE LAS HUELLAS) -->
                 <section id="tab-community" class="absolute inset-0 flex flex-col z-10 hidden">
-                    <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+                    <div class="safe-area-top bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
                         <div class="flex items-center space-x-2">
                             <div class="bg-ubipet-100 p-1.5 rounded-xl">
                                 <i class="fa-solid fa-paw text-ubipet-500 text-lg"></i>
@@ -569,7 +575,7 @@
 
                 <!-- 3.5. AYUDA SOLIDARIA -->
                 <section id="tab-help" class="absolute inset-0 flex flex-col z-10 hidden">
-                    <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+                    <div class="safe-area-top bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
                         <div class="flex items-center space-x-2">
                             <div class="bg-cyan-50 p-1.5 rounded-xl"><i class="fa-solid fa-hand-holding-heart text-cyan-600 text-lg"></i></div>
                             <div>
@@ -603,7 +609,7 @@
 
                 <!-- 4. PERFIL Y CARNET DIGITAL -->
                 <section id="tab-profile" class="absolute inset-0 flex flex-col z-10 hidden">
-                    <div class="bg-white px-4 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 z-30">
+                    <div class="safe-area-top bg-white px-4 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 z-30">
                         <h3 class="font-extrabold text-gray-800 text-base">Mi Mascota</h3>
                         <!-- Botón de Cerrar Sesión -->
                         <button onclick="logoutAll()" class="bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all">
