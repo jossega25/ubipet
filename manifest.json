@@ -1,11 +1,11 @@
 {
-  "name": "UbiPet",
+  "name": "UbiPet PWA",
   "short_name": "UbiPet",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
-  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
   "orientation": "portrait",
-  "theme_color": "#111827",
-  "background_color": "#111827"
+  "theme_color": "#09090b",
+  "background_color": "#09090b"
 }
